@@ -64,6 +64,8 @@
         .btn-s:hover { background: rgba(0,224,158,.15); border-color: rgba(0,224,158,.3); }
         .btn-d { background: rgba(255,92,92,.08); color: var(--danger); padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,92,92,.15); cursor: pointer; transition: all .2s; font-size: 13px; }
         .btn-d:hover { background: rgba(255,92,92,.18); border-color: rgba(255,92,92,.35); }
+        .btn-danger { background: rgba(255,92,92,.12); color: var(--danger); font-weight: 600; font-family: 'Outfit',sans-serif; padding: 10px 20px; border-radius: 10px; border: 1px solid rgba(255,92,92,.2); cursor: pointer; transition: all .3s; font-size: 14px; }
+        .btn-danger:hover { background: rgba(255,92,92,.2); border-color: rgba(255,92,92,.4); }
 
         .bp-in { background: rgba(0,224,158,.04); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--fg); font-family: 'Outfit',sans-serif; font-size: 20px; font-weight: 800; width: 100%; transition: all .2s; outline: none; }
         .bp-in:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,224,158,.1); }
@@ -101,6 +103,15 @@
         .perm-text { font-size: 13px; color: var(--fg-m); line-height: 1.6; }
         .perm-btn { margin-top: 16px; }
 
+        /* Модальное окно */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); z-index: 900; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .3s; }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .modal-box { background: #111a15; border: 1px solid var(--border); border-radius: 16px; padding: 28px; max-width: 420px; width: 90%; transform: scale(.9); transition: transform .3s cubic-bezier(.16,1,.3,1); }
+        .modal-overlay.open .modal-box { transform: scale(1); }
+        .modal-title { font-family: 'Outfit',sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 8px; }
+        .modal-text { font-size: 14px; color: var(--fg-m); line-height: 1.6; margin-bottom: 20px; }
+        .modal-actions { display: flex; flex-direction: column; gap: 8px; }
+
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0,224,158,.18); border-radius: 3px; }
@@ -127,6 +138,30 @@
         </svg>
     </div>
 
+    <!-- Скрытый input для CSV -->
+    <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none">
+
+    <!-- Модальное окно импорта -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal-box">
+            <div class="modal-title"><i class="fa-solid fa-file-import mr-2" style="color:var(--info)"></i>Импорт данных</div>
+            <div class="modal-text" id="importModalText">
+                У вас есть сохранённые записи. Как импортировать данные из файла?
+            </div>
+            <div class="modal-actions">
+                <button class="btn-p" style="width:100%;text-align:center" onclick="doImport('replace')">
+                    <i class="fa-solid fa-arrows-rotate mr-2"></i>Заменить все данные
+                </button>
+                <button class="btn-s" style="width:100%;text-align:center" onclick="doImport('append')">
+                    <i class="fa-solid fa-plus mr-2"></i>Добавить к существующим
+                </button>
+                <button class="btn-s" style="width:100%;text-align:center;color:var(--fg-m)" onclick="closeImportModal()">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="relative z-10 min-h-screen flex flex-col">
         <header class="px-5 py-5 md:px-10 md:py-7">
             <div class="max-w-7xl mx-auto flex items-center justify-between">
@@ -139,9 +174,10 @@
                         <p class="text-xs md:text-sm" style="color:var(--fg-m)">Голосовой ввод давления</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2" id="hdrAct" style="display:none">
+                <div class="flex items-center gap-2 flex-wrap justify-end" id="hdrAct" style="display:none">
+                    <button onclick="triggerImport()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-file-import text-[10px]"></i><span class="hidden sm:inline">Импорт </span>CSV</button>
                     <button onclick="exportCSV()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-file-export text-[10px]"></i><span class="hidden sm:inline">Экспорт </span>CSV</button>
-                    <button onclick="clearAll()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-trash-can text-[10px]"></i><span class="hidden sm:inline">Очистить</span></button>
+                    <button onclick="clearAll()" class="btn-danger text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-trash-can text-[10px]"></i><span class="hidden sm:inline">Очистить</span></button>
                 </div>
             </div>
         </header>
@@ -243,7 +279,7 @@
                             <div class="empty-s" id="emSt">
                                 <div class="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center" style="background:var(--accent-g)"><i class="fa-solid fa-microphone text-xl" style="color:var(--accent);opacity:.45"></i></div>
                                 <p class="font-display mb-0.5" style="font-weight:600">Нет данных</p>
-                                <p class="text-sm">Нажмите на микрофон и продиктуйте значения</p>
+                                <p class="text-sm">Нажмите на микрофон или импортируйте CSV</p>
                             </div>
                         </div>
                     </section>
@@ -262,17 +298,20 @@
     </div>
 
     <script>
+    /* ===== Состояние ===== */
     var M = [];
     var chart = null;
     var recognition = null;
     var isListening = false;
     var micStream = null;
+    var pendingImportData = null; /* Данные из CSV, ожидающие решения пользователя */
 
     try {
         var saved = localStorage.getItem('bp_data');
         if (saved) M = JSON.parse(saved);
     } catch(e) { M = []; }
 
+    /* ===== Инициализация ===== */
     document.addEventListener('DOMContentLoaded', function() {
         var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) {
@@ -283,15 +322,21 @@
         document.getElementById('iSys').addEventListener('input', updStat);
         document.getElementById('iDia').addEventListener('input', updStat);
         document.getElementById('iPls').addEventListener('input', updStat);
+
+        /* Слушатель выбора файла */
+        document.getElementById('csvFileInput').addEventListener('change', function(e) {
+            if (e.target.files.length) handleCSVFile(e.target.files[0]);
+            e.target.value = ''; /* Сброс чтобы можно было выбрать тот же файл */
+        });
     });
 
+    /* ===== Микрофон ===== */
     function requestMicPermission() {
         var btn = document.getElementById('permBtn');
         var errEl = document.getElementById('permError');
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Запрос доступа...';
         errEl.textContent = '';
-
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             errEl.textContent = 'Браузер не поддерживает доступ к микрофону.';
             errEl.style.color = 'var(--danger)';
@@ -299,10 +344,9 @@
             btn.innerHTML = '<i class="fa-solid fa-microphone mr-2"></i>Разрешить микрофон';
             return;
         }
-
         navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
             micStream = stream;
-            stream.getTracks().forEach(function(track) { track.enabled = false; });
+            stream.getTracks().forEach(function(t) { t.enabled = false; });
             initSpeech();
             document.getElementById('permSection').classList.add('hidden');
             var vs = document.getElementById('voiceSection');
@@ -310,7 +354,7 @@
             vs.classList.add('fade-in');
             showToast('Микрофон подключён. Теперь можно диктовать.', 'ok');
         }).catch(function(err) {
-            console.error('getUserMedia error:', err);
+            console.error('getUserMedia:', err);
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-microphone mr-2"></i>Разрешить микрофон';
             if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -337,45 +381,32 @@
         recognition.continuous = false;
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
-
         recognition.onresult = function(event) {
-            var interim = '';
-            var final = '';
+            var interim = '', final = '';
             for (var i = event.resultIndex; i < event.results.length; i++) {
                 if (event.results[i].isFinal) { final += event.results[i][0].transcript; }
                 else { interim += event.results[i][0].transcript; }
             }
             var box = document.getElementById('transcriptBox');
-            if (final) {
-                box.innerHTML = final;
-                box.classList.remove('active');
-                parseAndFill(final);
-            } else if (interim) {
-                box.innerHTML = '<span>' + final + '</span><span class="transcript-interim">' + interim + '</span>';
-                box.classList.add('active');
-            }
+            if (final) { box.innerHTML = final; box.classList.remove('active'); parseAndFill(final); }
+            else if (interim) { box.innerHTML = '<span>' + final + '</span><span class="transcript-interim">' + interim + '</span>'; box.classList.add('active'); }
         };
-
         recognition.onerror = function(event) {
             console.error('Speech error:', event.error);
             stopListening();
             if (event.error === 'no-speech') { showToast('Речь не обнаружена. Попробуйте снова.', 'info'); }
-            else if (event.error === 'aborted') { /* пользователь остановил */ }
+            else if (event.error === 'aborted') { /* ок */ }
             else if (event.error === 'not-allowed') { showToast('Доступ к микрофону потерян. Обновите страницу.', 'err'); }
             else { showToast('Ошибка распознавания: ' + event.error, 'err'); }
         };
-
         recognition.onend = function() { stopListening(); };
     }
 
-    function toggleListen() {
-        if (isListening) { if (recognition) recognition.stop(); }
-        else { startListening(); }
-    }
+    function toggleListen() { if (isListening) { if (recognition) recognition.stop(); } else { startListening(); } }
 
     function startListening() {
         if (!recognition) return;
-        if (micStream) { micStream.getTracks().forEach(function(track) { track.enabled = true; }); }
+        if (micStream) { micStream.getTracks().forEach(function(t) { t.enabled = true; }); }
         var box = document.getElementById('transcriptBox');
         box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Слушаю...</span>';
         box.classList.add('active');
@@ -393,7 +424,7 @@
         document.getElementById('micBtn').classList.remove('listening');
         document.getElementById('micStatus').textContent = 'Нажмите, чтобы начать';
         document.getElementById('transcriptBox').classList.remove('active');
-        if (micStream) { micStream.getTracks().forEach(function(track) { track.enabled = false; }); }
+        if (micStream) { micStream.getTracks().forEach(function(t) { t.enabled = false; }); }
     }
 
     function resetVoice() {
@@ -405,37 +436,26 @@
         document.getElementById('resStat').classList.add('hidden');
     }
 
+    /* ===== Парсинг голоса ===== */
     function parseAndFill(text) {
         var matches = text.match(/\b\d{2,3}\b/g);
         var nums = [];
-        if (matches) {
-            for (var i = 0; i < matches.length; i++) {
-                var n = parseInt(matches[i], 10);
-                if (n >= 30 && n <= 260) nums.push(n);
-            }
-        }
+        if (matches) { for (var i = 0; i < matches.length; i++) { var n = parseInt(matches[i], 10); if (n >= 30 && n <= 260) nums.push(n); } }
         var sys = null, dia = null, pulse = null;
-        if (nums.length >= 3) {
-            var sorted = nums.slice().sort(function(a, b) { return b - a; });
-            sys = sorted[0]; dia = sorted[1]; pulse = sorted[2];
-        } else if (nums.length === 2) {
-            sys = Math.max(nums[0], nums[1]);
-            dia = Math.min(nums[0], nums[1]);
-        } else if (nums.length === 1) {
-            sys = nums[0];
-        }
+        if (nums.length >= 3) { var sorted = nums.slice().sort(function(a, b) { return b - a; }); sys = sorted[0]; dia = sorted[1]; pulse = sorted[2]; }
+        else if (nums.length === 2) { sys = Math.max(nums[0], nums[1]); dia = Math.min(nums[0], nums[1]); }
+        else if (nums.length === 1) { sys = nums[0]; }
         document.getElementById('iSys').value = sys || '';
         document.getElementById('iDia').value = dia || '';
         document.getElementById('iPls').value = pulse || '';
         var rc = document.getElementById('resCard');
-        rc.classList.remove('hidden', 'fade-in');
-        void rc.offsetWidth;
-        rc.classList.add('fade-in');
+        rc.classList.remove('hidden', 'fade-in'); void rc.offsetWidth; rc.classList.add('fade-in');
         updStat();
         if (sys && dia) { showToast('Значения распознаны. Проверьте и сохраните.', 'ok'); }
         else { showToast('Распознано неполно. Дополните вручную.', 'info'); }
     }
 
+    /* ===== ВОЗ классификация ===== */
     function bpStatus(sys, dia) {
         if (sys < 120 && dia < 80)  return { label:'Оптимальное',     color:'#00e09e', bg:'rgba(0,224,158,.12)' };
         if (sys < 130 && dia < 85)  return { label:'Нормальное',      color:'#7ee8b5', bg:'rgba(126,232,181,.12)' };
@@ -444,21 +464,17 @@
         if (sys < 180 && dia < 110) return { label:'Гипертония 2 ст.', color:'#ff5c5c', bg:'rgba(255,92,92,.12)' };
         return                              { label:'Гипертония 3 ст.', color:'#ff2d2d', bg:'rgba(255,45,45,.15)' };
     }
-
-    function badgeHTML(st) {
-        return '<span class="badge" style="color:' + st.color + ';background:' + st.bg + '"><span class="badge-dot" style="background:' + st.color + '"></span>' + st.label + '</span>';
-    }
+    function badgeHTML(st) { return '<span class="badge" style="color:' + st.color + ';background:' + st.bg + '"><span class="badge-dot" style="background:' + st.color + '"></span>' + st.label + '</span>'; }
 
     function updStat() {
         var s = parseInt(document.getElementById('iSys').value, 10);
         var d = parseInt(document.getElementById('iDia').value, 10);
         var el = document.getElementById('resStat');
-        if (!isNaN(s) && !isNaN(d) && s > 0 && d > 0) {
-            el.innerHTML = badgeHTML(bpStatus(s, d));
-            el.classList.remove('hidden');
-        } else { el.classList.add('hidden'); }
+        if (!isNaN(s) && !isNaN(d) && s > 0 && d > 0) { el.innerHTML = badgeHTML(bpStatus(s, d)); el.classList.remove('hidden'); }
+        else { el.classList.add('hidden'); }
     }
 
+    /* ===== CRUD ===== */
     function addMeas() {
         var s = parseInt(document.getElementById('iSys').value, 10);
         var d = parseInt(document.getElementById('iDia').value, 10);
@@ -467,27 +483,21 @@
         if (isNaN(d) || d <= 0) { showToast('Укажите DIA', 'err'); document.getElementById('iDia').focus(); return; }
         if (s < d) { showToast('SYS должно быть больше DIA', 'err'); return; }
         M.push({ id: Date.now(), date: new Date().toISOString(), sys: s, dia: d, pulse: isNaN(p) ? null : p });
-        saveData(); renderAll();
-        showToast('Измерение добавлено', 'ok');
-        resetVoice();
+        saveData(); renderAll(); showToast('Измерение добавлено', 'ok'); resetVoice();
     }
 
-    function delMeas(id) {
-        M = M.filter(function(x) { return x.id !== id; });
-        saveData(); renderAll();
-        showToast('Запись удалена', 'info');
-    }
+    function delMeas(id) { M = M.filter(function(x) { return x.id !== id; }); saveData(); renderAll(); showToast('Запись удалена', 'info'); }
 
     function clearAll() {
         if (!M.length) return;
-        M = []; saveData(); renderAll();
-        showToast('Все записи удалены', 'info');
+        M = []; saveData(); renderAll(); showToast('Все записи удалены', 'info');
     }
 
     function saveData() { localStorage.setItem('bp_data', JSON.stringify(M)); }
 
+    /* ===== Экспорт CSV ===== */
     function exportCSV() {
-        if (!M.length) { showToast('Нет данных', 'err'); return; }
+        if (!M.length) { showToast('Нет данных для экспорта', 'err'); return; }
         var csv = '\uFEFFДата/Время;SYS;DIA;Пульс;Статус\n';
         for (var i = 0; i < M.length; i++) {
             var m = M[i]; var st = bpStatus(m.sys, m.dia);
@@ -501,12 +511,188 @@
         showToast('CSV сохранён', 'ok');
     }
 
+    /* ===== Импорт CSV ===== */
+
+    /* Открывает диалог выбора файла */
+    function triggerImport() {
+        document.getElementById('csvFileInput').click();
+    }
+
+    /* Читает файл и парсит */
+    function handleCSVFile(file) {
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { showToast('Файл слишком большой (макс. 5 МБ)', 'err'); return; }
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var text = e.target.result;
+            var parsed = parseCSV(text);
+
+            if (parsed.length === 0) {
+                showToast('В файле не найдено корректных записей', 'err');
+                return;
+            }
+
+            pendingImportData = parsed;
+
+            if (M.length > 0) {
+                /* Есть существующие данные — спросить что делать */
+                document.getElementById('importModalText').innerHTML =
+                    'В файле найдено <strong>' + parsed.length + '</strong> ' +
+                    pluralRu(parsed.length, 'запись', 'записи', 'записей') +
+                    '.<br>У вас уже есть <strong>' + M.length + '</strong> ' +
+                    pluralRu(M.length, 'запись', 'записи', 'записей') + '.<br>Как поступить?';
+                openImportModal();
+            } else {
+                /* Существующих данных нет — сразу импортируем */
+                doImport('replace');
+            }
+        };
+        reader.readAsText(file, 'utf-8');
+    }
+
+    /* Парсинг CSV текста в массив объектов */
+    function parseCSV(text) {
+        /* Убираем BOM если есть */
+        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+        var lines = text.split(/\r?\n/);
+        var result = [];
+        var startIdx = 0;
+
+        /* Определяем есть ли заголовок — если первая строка содержит буквы, пропускаем */
+        if (lines.length > 0) {
+            var firstLine = lines[0].toLowerCase();
+            if (firstLine.indexOf('sys') !== -1 || firstLine.indexOf('дата') !== -1 ||
+                firstLine.indexOf('date') !== -1 || firstLine.indexOf('пульс') !== -1 ||
+                firstLine.indexOf('pulse') !== -1 || firstLine.indexOf('статус') !== -1) {
+                startIdx = 1;
+            }
+        }
+
+        for (var i = startIdx; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line) continue;
+
+            /* Пытаемся разделить по ; */
+            var parts = line.split(';');
+            /* Если не разделилось (1 элемент), пробуем , */
+            if (parts.length <= 1) { parts = line.split(','); }
+            /* Если всё ещё 1 элемент, пробуем табуляцию */
+            if (parts.length <= 1) { parts = line.split('\t'); }
+
+            if (parts.length < 2) continue;
+
+            var dateStr = parts[0].trim();
+            var sys = parseInt(parts[1].trim(), 10);
+            var dia = parseInt(parts[2].trim(), 10);
+            var pulse = parts.length > 3 ? parseInt(parts[3].trim(), 10) : null;
+
+            /* Пропускаем если SYS или DIA не числа или вне диапазона */
+            if (isNaN(sys) || sys < 50 || sys > 260) continue;
+            if (isNaN(dia) || dia < 30 || dia > 160) continue;
+
+            /* Если пульс не распарсился (там было слово "Оптимальное" из столбца Статус) */
+            if (isNaN(pulse) || pulse < 30 || pulse > 220) pulse = null;
+
+            /* Парсим дату */
+            var dateISO = parseFlexDate(dateStr);
+            if (!dateISO) dateISO = new Date().toISOString();
+
+            result.push({
+                id: Date.now() + i, /* Уникальный ID с микросмещением */
+                date: dateISO,
+                sys: sys,
+                dia: dia,
+                pulse: pulse
+            });
+        }
+
+        /* Сортируем по дате */
+        result.sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
+
+        return result;
+    }
+
+    /* Гибкий парсер дат: DD.MM.YYYY HH:MM, YYYY-MM-DD и т.д. */
+    function parseFlexDate(str) {
+        if (!str) return null;
+
+        /* Формат: DD.MM.YYYY HH:MM или DD.MM.YYYY */
+        var m1 = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{1,2})$/);
+        if (m1) {
+            var d1 = new Date(parseInt(m1[3], 10), parseInt(m1[2], 10) - 1, parseInt(m1[1], 10), parseInt(m1[4], 10), parseInt(m1[5], 10));
+            if (!isNaN(d1.getTime())) return d1.toISOString();
+        }
+
+        var m2 = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+        if (m2) {
+            var d2 = new Date(parseInt(m2[3], 10), parseInt(m2[2], 10) - 1, parseInt(m2[1], 10));
+            if (!isNaN(d2.getTime())) return d2.toISOString();
+        }
+
+        /* Формат: YYYY-MM-DD HH:MM:SS или YYYY-MM-DD HH:MM */
+        var m3 = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+        if (m3) {
+            var d3 = new Date(parseInt(m3[1], 10), parseInt(m3[2], 10) - 1, parseInt(m3[3], 10), parseInt(m3[4], 10), parseInt(m3[5], 10));
+            if (!isNaN(d3.getTime())) return d3.toISOString();
+        }
+
+        /* Формат: YYYY-MM-DD */
+        var m4 = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        if (m4) {
+            var d4 = new Date(parseInt(m4[1], 10), parseInt(m4[2], 10) - 1, parseInt(m4[3], 10));
+            if (!isNaN(d4.getTime())) return d4.toISOString();
+        }
+
+        /* Просто пробуем Date.parse как фоллбэк */
+        var fallback = Date.parse(str);
+        if (!isNaN(fallback)) return new Date(fallback).toISOString();
+
+        return null;
+    }
+
+    /* Выполнение импорта */
+    function doImport(mode) {
+        closeImportModal();
+        if (!pendingImportData || pendingImportData.length === 0) return;
+
+        if (mode === 'replace') {
+            M = pendingImportData.slice();
+        } else {
+            /* Добавляем к существующим с новыми уникальными ID */
+            for (var i = 0; i < pendingImportData.length; i++) {
+                pendingImportData[i].id = Date.now() + i;
+                M.push(pendingImportData[i]);
+            }
+        }
+
+        saveData();
+        renderAll();
+        showToast('Импортировано ' + pendingImportData.length + ' ' + pluralRu(pendingImportData.length, 'запись', 'записи', 'записей'), 'ok');
+        pendingImportData = null;
+    }
+
+    /* Модальное окно */
+    function openImportModal() {
+        document.getElementById('importModal').classList.add('open');
+    }
+    function closeImportModal() {
+        document.getElementById('importModal').classList.remove('open');
+        pendingImportData = null;
+    }
+
+    /* Закрытие модалки кликом по оверлею */
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'importModal') closeImportModal();
+    });
+
+    /* ===== Утилиты ===== */
     function fmtDate(iso) {
         var d = new Date(iso);
         function p(n) { return n < 10 ? '0' + n : '' + n; }
         return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }
-
     function pluralRu(n, one, few, many) {
         var abs = Math.abs(n) % 100, n1 = abs % 10;
         if (abs > 10 && abs < 20) return many;
@@ -514,9 +700,9 @@
         if (n1 === 1) return one;
         return many;
     }
-
     function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
+    /* ===== Рендер ===== */
     function renderAll() {
         renderStats(); renderTable(); renderChart();
         document.getElementById('hdrAct').style.display = M.length ? 'flex' : 'none';
@@ -596,6 +782,7 @@
         });
     }
 
+    /* ===== Тост ===== */
     function showToast(msg, type) {
         var cls = type === 'ok' ? 'toast-ok' : type === 'err' ? 'toast-err' : 'toast-info';
         var icon = type === 'ok' ? 'fa-circle-check' : type === 'err' ? 'fa-circle-exclamation' : 'fa-circle-info';
