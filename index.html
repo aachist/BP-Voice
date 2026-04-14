@@ -1,3 +1,324 @@
-<button onclick="triggerImport()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-file-import text-[10px]"></i><span class="hidden sm:inline">Импорт</span></button>
-<button onclick="exportCSV()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5" id="btnExport"><i class="fa-solid fa-file-export text-[10px]"></i><span class="hidden sm:inline">Экспорт</span></button>
-<button onclick="clearAll()" class="btn-danger text-xs md:text-sm inline-flex items-center gap-1.5" id="btnClear" style="display:none"><i class="fa-solid fa-trash-can text-[10px]"></i><span class="hidden sm:inline">Очистить</span></button>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BP Voice - Голосовой ввод давления</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { fontFamily: { display: ['Outfit','sans-serif'], body: ['DM Sans','sans-serif'] } } }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#070b09; --bg-card:rgba(14,22,17,.85); --bg-card-h:rgba(18,28,22,.95); --fg:#e4ede8; --fg-m:#6b8578; --accent:#00e09e; --accent-d:#00b37e; --accent-g:rgba(0,224,158,.15); --border:rgba(0,224,158,.12); --danger:#ff5c5c; --warn:#ffb347; --info:#6eb5ff; }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--fg); min-height:100vh; overflow-x:hidden; }
+        h1,h2,h3,h4,h5,h6 { font-family:'Outfit',sans-serif; }
+        .bg-grid { position:fixed; inset:0; z-index:0; pointer-events:none; background-image:linear-gradient(rgba(0,224,158,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,224,158,.025) 1px,transparent 1px); background-size:60px 60px; }
+        .bg-glow { position:fixed; border-radius:50%; filter:blur(160px); opacity:.06; pointer-events:none; z-index:0; }
+        .bg-g1 { width:700px; height:700px; top:-250px; right:-150px; background:var(--accent); }
+        .bg-g2 { width:500px; height:500px; bottom:-200px; left:-100px; background:#00b37e; }
+        .ecg-wrap { position:fixed; bottom:0; left:0; right:0; height:110px; z-index:0; pointer-events:none; opacity:.06; overflow:hidden; }
+        .ecg-line { animation:ecgS 8s linear infinite; }
+        @keyframes ecgS { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        .heartbeat { animation:hb 1.2s ease-in-out infinite; }
+        @keyframes hb { 0%,100%{transform:scale(1)} 14%{transform:scale(1.18)} 28%{transform:scale(1)} 42%{transform:scale(1.12)} 56%{transform:scale(1)} }
+        .card { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; backdrop-filter:blur(20px); transition:all .3s; }
+        .card:hover { background:var(--bg-card-h); border-color:rgba(0,224,158,.2); }
+        .stat-card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:16px 20px; transition:all .3s; }
+        .stat-card:hover { transform:translateY(-2px); border-color:rgba(0,224,158,.25); box-shadow:0 8px 30px rgba(0,224,158,.08); }
+        .bp-table { width:100%; border-collapse:separate; border-spacing:0; }
+        .bp-table thead th { background:rgba(0,224,158,.06); padding:12px 14px; text-align:left; font-family:'Outfit',sans-serif; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg-m); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; }
+        .bp-table thead th:first-child { border-radius:8px 0 0 0; }
+        .bp-table thead th:last-child { border-radius:0 8px 0 0; }
+        .bp-table tbody tr { transition:background .2s; }
+        .bp-table tbody tr:hover { background:rgba(0,224,158,.04); }
+        .bp-table tbody td { padding:11px 14px; border-bottom:1px solid rgba(0,224,158,.05); font-size:14px; }
+        .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+        .badge-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+        .btn-p { background:linear-gradient(135deg,var(--accent-d),var(--accent)); color:#070b09; font-weight:700; font-family:'Outfit',sans-serif; padding:12px 28px; border-radius:10px; border:none; cursor:pointer; transition:all .3s; font-size:15px; }
+        .btn-p:hover { transform:translateY(-1px); box-shadow:0 6px 25px rgba(0,224,158,.3); }
+        .btn-p:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+        .btn-s { background:rgba(0,224,158,.08); color:var(--accent); font-weight:600; font-family:'Outfit',sans-serif; padding:10px 20px; border-radius:10px; border:1px solid var(--border); cursor:pointer; transition:all .3s; font-size:14px; }
+        .btn-s:hover { background:rgba(0,224,158,.15); border-color:rgba(0,224,158,.3); }
+        .btn-d { background:rgba(255,92,92,.08); color:var(--danger); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,92,92,.15); cursor:pointer; transition:all .2s; font-size:13px; }
+        .btn-d:hover { background:rgba(255,92,92,.18); border-color:rgba(255,92,92,.35); }
+        .btn-danger { background:rgba(255,92,92,.12); color:var(--danger); font-weight:600; font-family:'Outfit',sans-serif; padding:10px 20px; border-radius:10px; border:1px solid rgba(255,92,92,.2); cursor:pointer; transition:all .3s; font-size:14px; }
+        .btn-danger:hover { background:rgba(255,92,92,.2); border-color:rgba(255,92,92,.4); }
+        .bp-in { background:rgba(0,224,158,.04); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--fg); font-family:'Outfit',sans-serif; font-size:20px; font-weight:800; width:100%; transition:all .2s; outline:none; }
+        .bp-in:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,224,158,.1); }
+        .bp-in::placeholder { color:var(--fg-m); font-weight:400; font-size:14px; }
+        .mic-btn { width:120px; height:120px; border-radius:50%; border:3px solid var(--border); background:rgba(0,224,158,.05); color:var(--accent); cursor:pointer; transition:all .3s; display:flex; align-items:center; justify-content:center; position:relative; outline:none; }
+        .mic-btn:hover:not(:disabled) { border-color:var(--accent); background:rgba(0,224,158,.1); transform:scale(1.05); }
+        .mic-btn.listening { border-color:var(--danger); background:rgba(255,92,92,.1); color:var(--danger); animation:micPulse 1.5s ease-in-out infinite; }
+        .mic-btn.listening::before { content:''; position:absolute; inset:-12px; border-radius:50%; border:2px solid var(--danger); opacity:0; animation:micRipple 1.5s ease-out infinite; }
+        .mic-btn.listening::after { content:''; position:absolute; inset:-24px; border-radius:50%; border:2px solid var(--danger); opacity:0; animation:micRipple 1.5s ease-out infinite .5s; }
+        @keyframes micPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+        @keyframes micRipple { 0%{transform:scale(.8);opacity:.6} 100%{transform:scale(1.2);opacity:0} }
+        .mic-icon { font-size:40px; transition:all .3s; }
+        .mic-btn.listening .mic-icon { transform:scale(1.1); }
+        .transcript-box { background:rgba(0,224,158,.03); border:1px solid var(--border); border-radius:12px; padding:16px; min-height:60px; font-size:15px; line-height:1.6; color:var(--fg); width:100%; transition:all .3s; }
+        .transcript-box.active { border-color:rgba(0,224,158,.3); box-shadow:0 0 20px rgba(0,224,158,.05); }
+        .transcript-interim { color:var(--fg-m); font-style:italic; }
+        .toast { position:fixed; bottom:24px; right:24px; padding:14px 22px; border-radius:12px; font-weight:500; font-size:14px; z-index:1000; transform:translateY(80px); opacity:0; transition:all .45s cubic-bezier(.16,1,.3,1); backdrop-filter:blur(20px); max-width:400px; }
+        .toast.show { transform:translateY(0); opacity:1; }
+        .toast-ok { background:rgba(0,224,158,.14); border:1px solid rgba(0,224,158,.3); color:var(--accent); }
+        .toast-err { background:rgba(255,92,92,.14); border:1px solid rgba(255,92,92,.3); color:var(--danger); }
+        .toast-info { background:rgba(110,181,255,.14); border:1px solid rgba(110,181,255,.3); color:var(--info); }
+        .fade-in { animation:fi .45s ease forwards; }
+        @keyframes fi { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .row-in { animation:ri .35s cubic-bezier(.16,1,.3,1) forwards; }
+        @keyframes ri { from{opacity:0;transform:translateX(-16px)} to{opacity:1;transform:translateX(0)} }
+        .empty-s { text-align:center; padding:44px 24px; color:var(--fg-m); }
+        .perm-box { background:rgba(0,224,158,.05); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center; }
+        .perm-icon { font-size:32px; color:var(--accent); margin-bottom:12px; }
+        .perm-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:16px; margin-bottom:6px; }
+        .perm-text { font-size:13px; color:var(--fg-m); line-height:1.6; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); z-index:900; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; }
+        .modal-overlay.open { opacity:1; pointer-events:auto; }
+        .modal-box { background:#111a15; border:1px solid var(--border); border-radius:16px; padding:28px; max-width:420px; width:90%; transform:scale(.9); transition:transform .3s cubic-bezier(.16,1,.3,1); }
+        .modal-overlay.open .modal-box { transform:scale(1); }
+        .modal-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:18px; margin-bottom:8px; }
+        .modal-text { font-size:14px; color:var(--fg-m); line-height:1.6; margin-bottom:20px; }
+        .modal-actions { display:flex; flex-direction:column; gap:8px; }
+        ::-webkit-scrollbar { width:5px; height:5px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:rgba(0,224,158,.18); border-radius:3px; }
+        @media(prefers-reduced-motion:reduce) { .heartbeat,.ecg-line,.mic-btn.listening,.mic-btn.listening::before,.mic-btn.listening::after { animation:none!important; } }
+        @media(max-width:768px) { .bp-table thead th,.bp-table tbody td { padding:9px 10px; font-size:13px; } .bp-in { font-size:18px; } .mic-btn { width:100px; height:100px; } .mic-icon { font-size:32px; } }
+    </style>
+</head>
+<body class="relative">
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-g1"></div>
+    <div class="bg-glow bg-g2"></div>
+    <div class="ecg-wrap">
+        <svg class="ecg-line" width="2400" height="110" viewBox="0 0 2400 110" fill="none">
+            <path d="M0,55 H70 C75,55 78,49 80,49 C82,49 85,55 90,55 H110 L112,55 L114,60 L116,18 L118,92 L120,30 L122,55 H150 C155,55 160,43 165,43 C170,43 175,55 180,55 H270 C275,55 278,49 280,49 C282,49 285,55 290,55 H310 L312,55 L314,60 L316,18 L318,92 L320,30 L322,55 H350 C355,55 360,43 365,43 C370,43 375,55 380,55 H470 C475,55 478,49 480,49 C482,49 485,55 490,55 H510 L512,55 L514,60 L516,18 L518,92 L520,30 L522,55 H550 C555,55 560,43 565,43 C570,43 575,55 580,55 H670 C675,55 678,49 680,49 C682,49 685,55 690,55 H710 L712,55 L714,60 L716,18 L718,92 L720,30 L722,55 H750 C755,55 760,43 765,43 C770,43 775,55 780,55 H870 C875,55 878,49 880,49 C882,49 885,55 890,55 H910 L912,55 L914,60 L916,18 L918,92 L920,30 L922,55 H950 C955,55 960,43 965,43 C970,43 975,55 980,55 H1070 C1075,55 1078,49 1080,49 C1082,49 1085,55 1090,55 H1110 L1112,55 L1114,60 L1116,18 L1118,92 L1120,30 L1122,55 H1150 C1155,55 1160,43 1165,43 C1170,43 1175,55 1180,55 H1200 C1205,55 1208,49 1210,49 C1212,49 1215,55 1220,55 H1240 L1242,55 L1244,60 L1246,18 L1248,92 L1250,30 L1252,55 H1280 C1285,55 1290,43 1295,43 C1300,43 1305,55 1310,55 H1400 C1405,55 1408,49 1410,49 C1412,49 1415,55 1420,55 H1440 L1442,55 L1444,60 L1446,18 L1448,92 L1450,30 L1452,55 H1480 C1485,55 1490,43 1495,43 C1500,43 1505,55 1510,55 H1600 C1605,55 1608,49 1610,49 C1612,49 1615,55 1620,55 H1640 L1642,55 L1644,60 L1646,18 L1648,92 L1650,30 L1652,55 H1680 C1685,55 1690,43 1695,43 C1700,43 1705,55 1710,55 H1800 C1805,55 1808,49 1810,49 C1812,49 1815,55 1820,55 H1840 L1842,55 L1844,60 L1846,18 L1848,92 L1850,30 L1852,55 H1880 C1885,55 1890,43 1895,43 C1900,43 1905,55 1910,55 H2000 C2005,55 2008,49 2010,49 C2012,49 2015,55 2020,55 H2040 L2042,55 L2044,60 L2046,18 L2048,92 L2050,30 L2052,55 H2080 C2085,55 2090,43 2095,43 C2100,43 2105,55 2110,55 H2200 C2205,55 2208,49 2210,49 C2212,49 2215,55 2220,55 H2240 L2242,55 L2244,60 L2246,18 L2248,92 L2250,30 L2252,55 H2280 C2285,55 2290,43 2295,43 C2300,43 2305,55 2310,55 H2400" stroke="#00e09e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+
+    <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none">
+    <div class="modal-overlay" id="importModal">
+        <div class="modal-box">
+            <div class="modal-title"><i class="fa-solid fa-file-import mr-2" style="color:var(--info)"></i>Импорт данных</div>
+            <div class="modal-text" id="importModalText"></div>
+            <div class="modal-actions">
+                <button class="btn-p" style="width:100%;text-align:center" onclick="doImportReplace()"><i class="fa-solid fa-arrows-rotate mr-2"></i>Заменить все данные</button>
+                <button class="btn-s" style="width:100%;text-align:center" onclick="doImportAppend()"><i class="fa-solid fa-plus mr-2"></i>Добавить к существующим</button>
+                <button class="btn-s" style="width:100%;text-align:center;color:var(--fg-m)" onclick="cancelImport()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="relative z-10 min-h-screen flex flex-col">
+        <header class="px-5 py-5 md:px-10 md:py-7">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#00b37e,#00e09e)">
+                        <i class="fa-solid fa-heart-pulse text-lg heartbeat" style="color:#070b09"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-display text-xl md:text-2xl tracking-tight" style="font-weight:800">BP Voice</h1>
+                        <p class="text-xs md:text-sm" style="color:var(--fg-m)">Голосовой ввод давления</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap justify-end">
+                    <button onclick="triggerImport()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-file-import text-[10px]"></i><span class="hidden sm:inline">Импорт </span>CSV</button>
+                    <button onclick="exportCSV()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-file-export text-[10px]"></i><span class="hidden sm:inline">Экспорт </span>CSV</button>
+                    <button onclick="clearAll()" class="btn-danger text-xs md:text-sm inline-flex items-center gap-1.5" id="btnClear" style="display:none"><i class="fa-solid fa-trash-can text-[10px]"></i><span class="hidden sm:inline">Очистить</span></button>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 px-5 md:px-10 pb-10">
+            <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-5 space-y-5">
+                    <section class="card p-6" id="permSection">
+                        <div class="perm-box">
+                            <div class="perm-icon"><i class="fa-solid fa-microphone-lines"></i></div>
+                            <div class="perm-title">Нужен доступ к микрофону</div>
+                            <div class="perm-text">Для голосового ввода давления разрешите доступ к микрофону один раз.</div>
+                            <button class="btn-p" id="permBtn" onclick="requestMicPermission()" style="margin-top:16px"><i class="fa-solid fa-microphone mr-2"></i>Разрешить микрофон</button>
+                            <div class="perm-text" style="margin-top:12px;font-size:11px;opacity:.6" id="permError"></div>
+                        </div>
+                    </section>
+                    <section class="card p-6 hidden" id="voiceSection">
+                        <h2 class="font-display text-base mb-5 text-center" style="font-weight:700"><i class="fa-solid fa-microphone mr-2 text-sm" style="color:var(--accent)"></i>Голосовой ввод <span class="ml-2 text-[10px] uppercase tracking-wider" style="color:var(--accent);opacity:.7;font-weight:600">микрофон активен</span></h2>
+                        <div class="flex flex-col items-center">
+                            <button class="mic-btn" id="micBtn" onclick="toggleListen()" aria-label="Включить запись"><i class="fa-solid fa-microphone mic-icon"></i></button>
+                            <p class="text-sm mt-4 text-center" style="color:var(--fg-m)" id="micStatus">Нажмите, чтобы начать</p>
+                        </div>
+                        <div class="mt-5"><div class="transcript-box" id="transcriptBox"><span style="color:var(--fg-m);opacity:.5">Распознанный текст появится здесь...</span></div></div>
+                        <div class="mt-4 p-3 rounded-lg text-xs" style="background:rgba(110,181,255,.06);border:1px solid rgba(110,181,255,.12);color:var(--info)">
+                            <i class="fa-solid fa-circle-info mr-1.5"></i><strong>Примеры:</strong> "Сто двадцать на восемьдесят, пульс шестьдесят"
+                        </div>
+                    </section>
+                    <section class="card p-5 hidden" id="resCard">
+                        <h2 class="font-display text-base mb-4" style="font-weight:700"><i class="fa-solid fa-sliders mr-2 text-sm" style="color:var(--accent)"></i>Проверьте и сохраните</h2>
+                        <div class="grid grid-cols-3 gap-3 mb-3">
+                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">SYS</label><input type="number" class="bp-in text-center" id="iSys" placeholder="---" min="50" max="260"></div>
+                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">DIA</label><input type="number" class="bp-in text-center" id="iDia" placeholder="---" min="30" max="160"></div>
+                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">Пульс</label><input type="number" class="bp-in text-center" id="iPls" placeholder="---" min="30" max="220"></div>
+                        </div>
+                        <div id="resStat" class="mb-3.5 hidden"></div>
+                        <div class="flex gap-2.5">
+                            <button onclick="addMeas()" class="btn-p flex-1 text-sm"><i class="fa-solid fa-plus mr-1.5"></i>Добавить</button>
+                            <button onclick="resetVoice()" class="btn-s text-sm"><i class="fa-solid fa-rotate-left mr-1"></i>Сброс</button>
+                        </div>
+                    </section>
+                </div>
+                <div class="lg:col-span-7 space-y-5">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m);font-weight:600">Последнее SYS</div><div class="font-display text-2xl" style="font-weight:800" id="sSys">--</div><div class="text-[10px] mt-0.5" style="color:var(--fg-m)">мм рт.ст.</div></div>
+                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m);font-weight:600">Последнее DIA</div><div class="font-display text-2xl" style="font-weight:800" id="sDia">--</div><div class="text-[10px] mt-0.5" style="color:var(--fg-m)">мм рт.ст.</div></div>
+                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m);font-weight:600">Последний пульс</div><div class="font-display text-2xl" style="font-weight:800" id="sPls">--</div><div class="text-[10px] mt-0.5" style="color:var(--fg-m)">уд/мин</div></div>
+                    </div>
+                    <section class="card overflow-hidden">
+                        <div class="px-5 py-3.5 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+                            <h2 class="font-display text-base" style="font-weight:700"><i class="fa-solid fa-table-list mr-2 text-sm" style="color:var(--accent)"></i>История</h2>
+                            <span class="text-xs" style="color:var(--fg-m)" id="mCnt">0 записей</span>
+                        </div>
+                        <div class="overflow-x-auto" style="max-height:400px;overflow-y:auto">
+                            <table class="bp-table"><thead><tr><th style="width:36px">#</th><th>Дата / Время</th><th>SYS</th><th>DIA</th><th>Пульс</th><th>Статус</th><th style="width:40px"></th></tr></thead><tbody id="tBody"></tbody></table>
+                            <div class="empty-s" id="emSt"><div class="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center" style="background:var(--accent-g)"><i class="fa-solid fa-microphone text-xl" style="color:var(--accent);opacity:.45"></i></div><p class="font-display mb-0.5" style="font-weight:600">Нет данных</p><p class="text-sm">Нажмите на микрофон или импортируйте CSV</p></div>
+                        </div>
+                    </section>
+                    <section class="card p-5 hidden" id="chartC">
+                        <h2 class="font-display text-base mb-3" style="font-weight:700"><i class="fa-solid fa-chart-line mr-2 text-sm" style="color:var(--accent)"></i>Динамика</h2>
+                        <div style="position:relative;height:240px"><canvas id="bpCh"></canvas></div>
+                    </section>
+                </div>
+            </div>
+        </main>
+        <footer class="px-5 py-5 text-center" style="border-top:1px solid var(--border)"><p class="text-[11px]" style="color:var(--fg-m);opacity:.7">Данные только на вашем устройстве. Рекомендуется Chrome или Edge.</p></footer>
+    </div>
+
+    <script>
+    var M = [];
+    var chart = null;
+    var recognition = null;
+    var isListening = false;
+    var micStream = null;
+    var pendingImportData = null;
+
+    try { var saved = localStorage.getItem("bp_data"); if (saved) { M = JSON.parse(saved); } } catch(e) { M = []; }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { blockMic("Браузер не поддерживает голосовой ввод. Откройте в Chrome или Edge."); return; }
+        renderAll();
+        document.getElementById("iSys").addEventListener("input", updStat);
+        document.getElementById("iDia").addEventListener("input", updStat);
+        document.getElementById("iPls").addEventListener("input", updStat);
+        document.getElementById("csvFileInput").addEventListener("change", function(e) { if (e.target.files.length) { handleCSVFile(e.target.files[0]); } e.target.value = ""; });
+    });
+
+    function requestMicPermission() {
+        var btn = document.getElementById("permBtn");
+        var errEl = document.getElementById("permError");
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Запрос доступа...';
+        errEl.textContent = "";
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { errEl.textContent = "Браузер не поддерживает доступ к микрофону."; errEl.style.color = "var(--danger)"; btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-microphone mr-2"></i>Разрешить микрофон'; return; }
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) { micStream = stream; stream.getTracks().forEach(function(t) { t.enabled = false; }); initSpeech(); document.getElementById("permSection").classList.add("hidden"); var vs = document.getElementById("voiceSection"); vs.classList.remove("hidden"); vs.classList.add("fade-in"); showToast("Микрофон подключён. Теперь можно диктовать.", "ok"); }).catch(function(err) { console.error("getUserMedia:", err); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-microphone mr-2"></i>Разрешить микрофон'; errEl.textContent = "Ошибка: " + err.message; errEl.style.color = "var(--danger)"; });
+    }
+
+    function blockMic(msg) { var btn = document.getElementById("micBtn"); if (btn) { btn.disabled = true; btn.style.opacity = "0.3"; btn.style.cursor = "not-allowed"; } document.getElementById("micStatus").innerHTML = '<span style="color:var(--danger);font-size:13px;line-height:1.5">' + msg + "</span>"; }
+
+    function initSpeech() {
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SR(); recognition.lang = "ru-RU"; recognition.continuous = false; recognition.interimResults = true; recognition.maxAlternatives = 1;
+        recognition.onresult = function(event) { var interim = ""; var final = ""; for (var i = event.resultIndex; i < event.results.length; i++) { if (event.results[i].isFinal) { final += event.results[i][0].transcript; } else { interim += event.results[i][0].transcript; } } var box = document.getElementById("transcriptBox"); if (final) { box.innerHTML = final; box.classList.remove("active"); parseAndFill(final); } else if (interim) { box.innerHTML = "<span>" + final + "</span><span class=\"transcript-interim\">" + interim + "</span>"; box.classList.add("active"); } };
+        recognition.onerror = function(event) { console.error("Speech error:", event.error); stopListening(); if (event.error === "no-speech") { showToast("Речь не обнаружена. Попробуйте снова.", "info"); } else if (event.error !== "aborted") { showToast("Ошибка: " + event.error, "err"); } };
+        recognition.onend = function() { stopListening(); };
+    }
+
+    function toggleListen() { if (isListening) { if (recognition) { recognition.stop(); } } else { startListening(); } }
+
+    function startListening() {
+        if (!recognition) { return; }
+        if (micStream) { micStream.getTracks().forEach(function(t) { t.enabled = true; }); }
+        var box = document.getElementById("transcriptBox");
+        box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Слушаю...</span>';
+        box.classList.add("active");
+        document.getElementById("resCard").classList.add("hidden");
+        try { recognition.start(); isListening = true; document.getElementById("micBtn").classList.add("listening"); document.getElementById("micStatus").textContent = "Говорите сейчас..."; } catch(e) { console.error(e); }
+    }
+
+    function stopListening() { isListening = false; document.getElementById("micBtn").classList.remove("listening"); document.getElementById("micStatus").textContent = "Нажмите, чтобы начать"; document.getElementById("transcriptBox").classList.remove("active"); if (micStream) { micStream.getTracks().forEach(function(t) { t.enabled = false; }); } }
+
+    function resetVoice() { document.getElementById("resCard").classList.add("hidden"); document.getElementById("transcriptBox").innerHTML = '<span style="color:var(--fg-m);opacity:.5">Распознанный текст появится здесь...</span>'; document.getElementById("iSys").value = ""; document.getElementById("iDia").value = ""; document.getElementById("iPls").value = ""; document.getElementById("resStat").classList.add("hidden"); }
+
+    function parseAndFill(text) {
+        var matches = text.match(/\b\d{2,3}\b/g); var nums = [];
+        if (matches) { for (var i = 0; i < matches.length; i++) { var n = parseInt(matches[i], 10); if (n >= 30 && n <= 260) { nums.push(n); } } }
+        var sys = null; var dia = null; var pulse = null;
+        if (nums.length >= 3) { var sorted = nums.slice().sort(function(a, b) { return b - a; }); sys = sorted[0]; dia = sorted[1]; pulse = sorted[2]; } else if (nums.length === 2) { sys = Math.max(nums[0], nums[1]); dia = Math.min(nums[0], nums[1]); } else if (nums.length === 1) { sys = nums[0]; }
+        document.getElementById("iSys").value = sys || ""; document.getElementById("iDia").value = dia || ""; document.getElementById("iPls").value = pulse || "";
+        var rc = document.getElementById("resCard"); rc.classList.remove("hidden"); rc.classList.remove("fade-in"); void rc.offsetWidth; rc.classList.add("fade-in");
+        updStat();
+        if (sys && dia) { showToast("Значения распознаны. Проверьте и сохраните.", "ok"); } else { showToast("Распознано неполно. Дополните вручную.", "info"); }
+    }
+
+    function bpStatus(sys, dia) {
+        if (sys < 120 && dia < 80) { return { label:"Оптимальное", color:"#00e09e", bg:"rgba(0,224,158,.12)" }; }
+        if (sys < 130 && dia < 85) { return { label:"Нормальное", color:"#7ee8b5", bg:"rgba(126,232,181,.12)" }; }
+        if (sys < 140 && dia < 90) { return { label:"Повышенное", color:"#ffb347", bg:"rgba(255,179,71,.12)" }; }
+        if (sys < 160 && dia < 100) { return { label:"Гипертония 1 ст.", color:"#ff8c5c", bg:"rgba(255,140,92,.12)" }; }
+        if (sys < 180 && dia < 110) { return { label:"Гипертония 2 ст.", color:"#ff5c5c", bg:"rgba(255,92,92,.12)" }; }
+        return { label:"Гипертония 3 ст.", color:"#ff2d2d", bg:"rgba(255,45,45,.15)" };
+    }
+
+    function badgeHTML(st) { return '<span class="badge" style="color:' + st.color + ";background:" + st.bg + '"><span class="badge-dot" style="background:' + st.color + '"></span>' + st.label + "</span>"; }
+
+    function updStat() { var s = parseInt(document.getElementById("iSys").value, 10); var d = parseInt(document.getElementById("iDia").value, 10); var el = document.getElementById("resStat"); if (!isNaN(s) && !isNaN(d) && s > 0 && d > 0) { el.innerHTML = badgeHTML(bpStatus(s, d)); el.classList.remove("hidden"); } else { el.classList.add("hidden"); } }
+
+    function addMeas() { var s = parseInt(document.getElementById("iSys").value, 10); var d = parseInt(document.getElementById("iDia").value, 10); var p = parseInt(document.getElementById("iPls").value, 10); if (isNaN(s) || s <= 0) { showToast("Укажите SYS", "err"); document.getElementById("iSys").focus(); return; } if (isNaN(d) || d <= 0) { showToast("Укажите DIA", "err"); document.getElementById("iDia").focus(); return; } if (s < d) { showToast("SYS должно быть больше DIA", "err"); return; } var pulseVal = null; if (!isNaN(p)) { pulseVal = p; } M.push({ id: Date.now(), date: new Date().toISOString(), sys: s, dia: d, pulse: pulseVal }); saveData(); renderAll(); showToast("И��мерение добавлено", "ok"); resetVoice(); }
+
+    function delMeas(id) { M = M.filter(function(x) { return x.id !== id; }); saveData(); renderAll(); showToast("Запись удалена", "info"); }
+
+    function clearAll() { if (!M.length) { return; } M = []; saveData(); renderAll(); showToast("Все записи удалены", "info"); }
+
+    function saveData() { localStorage.setItem("bp_data", JSON.stringify(M)); }
+
+    function exportCSV() { if (!M.length) { showToast("Нет данных для экспорта", "err"); return; } var csv = "\uFEFFДата/Время;SYS;DIA;Пульс;Статус\n"; for (var i = 0; i < M.length; i++) { var m = M[i]; var st = bpStatus(m.sys, m.dia); var pls = "-"; if (m.pulse !== null) { pls = m.pulse; } csv += fmtDate(m.date) + ";" + m.sys + ";" + m.dia + ";" + pls + ";" + st.label + "\n"; } var blob = new Blob([csv], { type: "text/csv;charset=utf-8" }); var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "bp_" + new Date().toISOString().slice(0, 10) + ".csv"; a.click(); URL.revokeObjectURL(a.href); showToast("CSV сохранён", "ok"); }
+
+    function triggerImport() { document.getElementById("csvFileInput").click(); }
+
+    function handleCSVFile(file) { if (!file) { return; } var reader = new FileReader(); reader.onload = function(e) { var parsed = parseCSV(e.target.result); if (parsed.length === 0) { showToast("В файле не найдено корректных записей", "err"); return; } pendingImportData = parsed; if (M.length > 0) { var txt = "В файле: <strong>" + parsed.length + "</strong> " + pluralRu(parsed.length, "запись", "записи", "записей"); txt += ".<br>Сейчас: <strong>" + M.length + "</strong> " + pluralRu(M.length, "запись", "записи", "записей"); txt += ".<br>Как поступить?"; document.getElementById("importModalText").innerHTML = txt; document.getElementById("importModal").classList.add("open"); } else { doImportReplace(); } }; reader.readAsText(file, "utf-8"); }
+
+    function parseCSV(text) { if (text.charCodeAt(0) === 0xFEFF) { text = text.slice(1); } var lines = text.split(/\r?\n/); var result = []; var startIdx = 0; if (lines.length > 0) { var fl = lines[0].toLowerCase(); if (fl.indexOf("sys") !== -1 || fl.indexOf("дата") !== -1 || fl.indexOf("date") !== -1 || fl.indexOf("пульс") !== -1 || fl.indexOf("pulse") !== -1) { startIdx = 1; } } for (var i = startIdx; i < lines.length; i++) { var line = lines[i].trim(); if (!line) { continue; } var parts = line.split(";"); if (parts.length <= 1) { parts = line.split(","); } if (parts.length <= 1) { parts = line.split("\t"); } if (parts.length < 2) { continue; } var sys = parseInt(parts[1].trim(), 10); var dia = parseInt(parts[2].trim(), 10); var pulse = null; if (parts.length > 3) { pulse = parseInt(parts[3].trim(), 10); } if (isNaN(sys) || sys < 50 || sys > 260) { continue; } if (isNaN(dia) || dia < 30 || dia > 160) { continue; } if (isNaN(pulse) || pulse < 30 || pulse > 220) { pulse = null; } var dateISO = parseFlexDate(parts[0].trim()); if (!dateISO) { dateISO = new Date().toISOString(); } result.push({ id: Date.now() + i, date: dateISO, sys: sys, dia: dia, pulse: pulse }); } result.sort(function(a, b) { return new Date(a.date) - new Date(b.date); }); return result; }
+
+    function parseFlexDate(str) { if (!str) { return null; } var m; var d; m = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{1,2})$/); if (m) { d = new Date(parseInt(m[3],10), parseInt(m[2],10)-1, parseInt(m[1],10), parseInt(m[4],10), parseInt(m[5],10)); if (!isNaN(d.getTime())) { return d.toISOString(); } } m = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); if (m) { d = new Date(parseInt(m[3],10), parseInt(m[2],10)-1, parseInt(m[1],10)); if (!isNaN(d.getTime())) { return d.toISOString(); } } m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})/); if (m) { d = new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10), parseInt(m[4],10), parseInt(m[5],10)); if (!isNaN(d.getTime())) { return d.toISOString(); } } m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if (m) { d = new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10)); if (!isNaN(d.getTime())) { return d.toISOString(); } } return null; }
+
+    function doImportReplace() { document.getElementById("importModal").classList.remove("open"); if (!pendingImportData || pendingImportData.length === 0) { return; } var count = pendingImportData.length; M = pendingImportData.slice(); pendingImportData = null; saveData(); renderAll(); showToast("Импортировано " + count + " " + pluralRu(count, "запись", "записи", "записей"), "ok"); }
+
+    function doImportAppend() { document.getElementById("importModal").classList.remove("open"); if (!pendingImportData || pendingImportData.length === 0) { return; } var count = pendingImportData.length; for (var i = 0; i < pendingImportData.length; i++) { pendingImportData[i].id = Date.now() + i; M.push(pendingImportData[i]); } pendingImportData = null; saveData(); renderAll(); showToast("Добавлено " + count + " " + pluralRu(count, "запись", "записи", "записей"), "ok"); }
+
+    function cancelImport() { document.getElementById("importModal").classList.remove("open"); pendingImportData = null; }
+
+    document.addEventListener("click", function(e) { if (e.target.id === "importModal") { cancelImport(); } });
+
+    function fmtDate(iso) { var d = new Date(iso); var dd = d.getDate(); var mm = d.getMonth() + 1; var yyyy = d.getFullYear(); var hh = d.getHours(); var mi = d.getMinutes(); if (dd < 10) { dd = "0" + dd; } if (mm < 10) { mm = "0" + mm; } if (hh < 10) { hh = "0" + hh; } if (mi < 10) { mi = "0" + mi; } return dd + "." + mm + "." + yyyy + " " + hh + ":" + mi; }
+
+    function pluralRu(n, one, few, many) { var abs = Math.abs(n) % 100; var n1 = abs % 10; if (abs > 10 && abs < 20) { return many; } if (n1 > 1 && n1 < 5) { return few; } if (n1 === 1) { return one; } return many; }
+
+    function pad2(n) { if (n < 10) { return "0" + n; } return "" + n; }
+
+    function renderAll() { renderStats(); renderTable(); renderChart(); if (M.length > 0) { document.getElementById("btnClear").style.display = "inline-flex"; } else { document.getElementById("btnClear").style.display = "none"; } }
+
+    function renderStats() { var eS = document.getElementById("sSys"); var eD = document.getElementById("sDia"); var eP = document.getElementById("sPls"); if (M.length > 0) { var last = M[M.length - 1]; var st = bpStatus(last.sys, last.dia); eS.textContent = last.sys; eD.textContent = last.dia; eP.textContent = "--"; if (last.pulse !== null) { eP.textContent = last.pulse; } eS.style.color = st.color; eD.style.color = st.color; } else { eS.textContent = "--"; eD.textContent = "--"; eP.textContent = "--"; eS.style.color = ""; eD.style.color = ""; } }
+
+    function renderTable() { var tb = document.getElementById("tBody"); var em = document.getElementById("emSt"); document.getElementById("mCnt").textContent = M.length + " " + pluralRu(M.length, "запись", "записи", "записей"); if (M.length === 0) { tb.innerHTML = ""; em.classList.remove("hidden"); return; } em.classList.add("hidden"); tb.innerHTML = ""; var rev = M.slice().reverse(); for (var idx = 0; idx < rev.length; idx++) { var m = rev[idx]; var num = M.length - idx; var st = bpStatus(m.sys, m.dia); var tr = document.createElement("tr"); tr.className = "row-in"; tr.style.animationDelay = (idx * 30) + "ms"; var pls = '<span style="color:var(--fg-m)">--</span>'; if (m.pulse !== null) { pls = '<span style="font-family:Outfit;font-weight:700;font-size:15px">' + m.pulse + "</span>"; } tr.innerHTML = '<td style="color:var(--fg-m);font-size:12px;font-weight:600">' + num + "</td>" + '<td style="font-size:13px;white-space:nowrap">' + fmtDate(m.date) + "</td>" + '<td><span style="font-family:Outfit;font-weight:800;font-size:16px;color:' + st.color + '">' + m.sys + "</span></td>" + '<td><span style="font-family:Outfit;font-weight:800;font-size:16px">' + m.dia + "</span></td>" + "<td>" + pls + "</td>" + "<td>" + badgeHTML(st) + "</td>" + '<td><button class="btn-d" onclick="delMeas(' + m.id + ')" aria-label="Удалить"><i class="fa-solid fa-xmark"></i></button></td>'; tb.appendChild(tr); } }
+
+    function renderChart() { var cc = document.getElementById("chartC"); if (M.length < 2) { cc.classList.add("hidden"); if (chart) { chart.destroy(); chart = null; } return; } cc.classList.remove("hidden"); var labels = []; var sysD = []; var diaD = []; var plsD = []; for (var i = 0; i < M.length; i++) { var d = new Date(M[i].date); labels.push(pad2(d.getHours()) + ":" + pad2(d.getMinutes())); sysD.push(M[i].sys); diaD.push(M[i].dia); plsD.push(M[i].pulse); } if (chart) { chart.destroy(); } var ctx = document.getElementById("bpCh").getContext("2d"); chart = new Chart(ctx, { type: "line", data: { labels: labels, datasets: [ { label: "SYS", data: sysD, borderColor: "#ff5c5c", backgroundColor: "rgba(255,92,92,.08)", borderWidth: 2.5, pointBackgroundColor: "#ff5c5c", pointRadius: 4, tension: 0.35, fill: true }, { label: "DIA", data: diaD, borderColor: "#00e09e", backgroundColor: "rgba(0,224,158,.08)", borderWidth: 2.5, pointBackgroundColor: "#00e09e", pointRadius: 4, tension: 0.35, fill: true }, { label: "Пульс", data: plsD, borderColor: "#6eb5ff", backgroundColor: "rgba(110,181,255,.05)", borderWidth: 1.5, borderDash: [5, 4], pointBackgroundColor: "#6eb5ff", pointRadius: 3, tension: 0.35, fill: false, spanGaps: true } ] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false }, plugins: { legend: { position: "top", labels: { color: "#6b8578", font: { family: "Outfit", size: 12, weight: "600" }, boxWidth: 14, boxHeight: 2, padding: 16 } }, tooltip: { backgroundColor: "rgba(14,22,17,.95)", titleColor: "#e4ede8", bodyColor: "#e4ede8", borderColor: "rgba(0,224,158,.2)", borderWidth: 1, padding: 12, cornerRadius: 8 } }, scales: { x: { grid: { color: "rgba(0,224,158,.05)" }, ticks: { color: "#6b8578", font: { family: "DM Sans", size: 11 } } }, y: { grid: { color: "rgba(0,224,158,.05)" }, ticks: { color: "#6b8578", font: { family: "Outfit", size: 11 } }, suggestedMin: 40, suggestedMax: 180 } } } }); }
+
+    function showToast(msg, type) { var cls = "toast-info"; var icon = "fa-circle-info"; if (type === "ok") { cls = "toast-ok"; icon = "fa-circle-check"; } if (type === "err") { cls = "toast-err"; icon = "fa-circle-exclamation"; } var el = document.createElement("div"); el.className = "toast " + cls; el.innerHTML = '<i class="fa-solid ' + icon + ' mr-2"></i>' + msg; document.body.appendChild(el); requestAnimationFrame(function() { requestAnimationFrame(function() { el.classList.add("show"); }); }); setTimeout(function() { el.classList.remove("show"); setTimeout(function() { el.remove(); }, 500); }, 3500); }
+    </script>
+</body>
+</html>
