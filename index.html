@@ -61,9 +61,10 @@
         @keyframes micRipple { 0%{transform:scale(.8);opacity:.6} 100%{transform:scale(1.2);opacity:0} }
         .mic-icon { font-size:40px; transition:all .3s; }
         .mic-btn.listening .mic-icon { transform:scale(1.1); }
-        .transcript-box { background:rgba(0,224,158,.03); border:1px solid var(--border); border-radius:12px; padding:16px; min-height:80px; font-size:14px; line-height:1.6; color:var(--fg); width:100%; transition:all .3s; }
+        .transcript-box { background:rgba(0,224,158,.03); border:1px solid var(--border); border-radius:12px; padding:16px; min-height:100px; font-size:14px; line-height:1.6; color:var(--fg); width:100%; transition:all .3s; }
         .transcript-box.active { border-color:rgba(0,224,158,.3); box-shadow:0 0 20px rgba(0,224,158,.05); }
         .transcript-interim { color:var(--fg-m); font-style:italic; }
+        .timer-display { font-size:18px; font-weight:700; color:var(--accent); text-align:center; margin-bottom:8px; }
         .toast { position:fixed; bottom:24px; right:24px; padding:14px 22px; border-radius:12px; font-weight:500; font-size:14px; z-index:1000; transform:translateY(80px); opacity:0; transition:all .45s cubic-bezier(.16,1,.3,1); backdrop-filter:blur(20px); max-width:400px; }
         .toast.show { transform:translateY(0); opacity:1; }
         .toast-ok { background:rgba(0,224,158,.14); border:1px solid rgba(0,224,158,.3); color:var(--accent); }
@@ -153,9 +154,12 @@
                             <button class="mic-btn" id="micBtn" onclick="toggleListen()" aria-label="Включить запись"><i class="fa-solid fa-microphone mic-icon"></i></button>
                             <p class="text-sm mt-4 text-center" style="color:var(--fg-m)" id="micStatus">Нажмите, чтобы начать</p>
                         </div>
-                        <div class="mt-5"><div class="transcript-box" id="transcriptBox"><span style="color:var(--fg-m);opacity:.5">Распознанный текст появится здесь...</span></div></div>
+                        <div class="mt-5">
+                            <div class="timer-display" id="timerDisplay" style="display:none">⏱ <span id="timerValue">15</span>s</div>
+                            <div class="transcript-box" id="transcriptBox"><span style="color:var(--fg-m);opacity:.5">Распознанный текст появится здесь...</span></div>
+                        </div>
                         <div class="mt-4 p-3 rounded-lg text-xs" style="background:rgba(110,181,255,.06);border:1px solid rgba(110,181,255,.12);color:var(--info)">
-                            <i class="fa-solid fa-circle-info mr-1.5"></i><strong>Скажите фразу:</strong><br>"Ваше кровяное давление составляет систолическое давление [число] диастолическое давление [число] пульс [число]"
+                            <i class="fa-solid fa-circle-info mr-1.5"></i><strong>Скажите:</strong><br>"Сто тридцать, семьдесят пять, шестьдесят четыре"<br><em>или любые другие 3 числа</em>
                         </div>
                     </section>
                     <section class="card p-5 hidden" id="resCard">
@@ -205,13 +209,16 @@
     var isListening = false;
     var micStream = null;
     var pendingImportData = null;
-    var currentRecognitionText = "";
+    var listeningStartTime = null;
+    var listeningTimeout = null;
+    var allRecognizedText = "";
+    var extractedNumbers = [];
 
     try { var saved = localStorage.getItem("bp_data"); if (saved) { M = JSON.parse(saved); } } catch(e) { M = []; }
 
     document.addEventListener("DOMContentLoaded", function() {
         var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { blockMic("Браузер не поддерживает голосовой ввод. Откройте в Chrome или Edge."); return; }
+        if (!SR) { blockMic("Браузер не поддерживае�� голосовой ввод. Откройте в Chrome или Edge."); return; }
         renderAll();
         document.getElementById("csvFileInput").addEventListener("change", function(e) { if (e.target.files.length) { handleCSVFile(e.target.files[0]); } e.target.value = ""; });
     });
@@ -232,52 +239,130 @@
         var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         recognition = new SR(); 
         recognition.lang = "ru-RU"; 
-        recognition.continuous = false; 
+        recognition.continuous = true;
         recognition.interimResults = true; 
         recognition.maxAlternatives = 1;
+        
+        recognition.onstart = function() {
+            listeningStartTime = Date.now();
+            allRecognizedText = "";
+            extractedNumbers = [];
+            startTimer();
+        };
         
         recognition.onresult = function(event) { 
             var interim = ""; 
             var final = ""; 
+            
             for (var i = event.resultIndex; i < event.results.length; i++) { 
                 if (event.results[i].isFinal) { 
-                    final += event.results[i][0].transcript; 
+                    final += event.results[i][0].transcript + " "; 
                 } else { 
                     interim += event.results[i][0].transcript; 
                 } 
             } 
             
-            var box = document.getElementById("transcriptBox"); 
-            currentRecognitionText = final || interim;
+            if (final) {
+                allRecognizedText += final;
+                // Извлекаем все числа из накопленного текста
+                extractNumbers(allRecognizedText);
+            }
             
-            if (final) { 
-                box.innerHTML = '<span style="color:var(--accent)"><i class="fa-solid fa-check-circle mr-2"></i>' + final + '</span>'; 
-                box.classList.remove("active"); 
-                parseBloodPressureMessage(final); 
-            } else if (interim) { 
-                box.innerHTML = "<span>" + interim + "</span><span class=\"transcript-interim\"> (прослушивание...)</span>"; 
-                box.classList.add("active"); 
-            } 
+            var box = document.getElementById("transcriptBox"); 
+            
+            if (extractedNumbers.length >= 3) {
+                // У нас есть все 3 числа, показываем результат
+                box.innerHTML = '<span style="color:var(--accent);font-weight:700"><i class="fa-solid fa-check-circle mr-2"></i>Распознано 3 числа:</span><br>' +
+                    '<span style="font-size:16px;font-weight:800">' + extractedNumbers[0] + ' • ' + extractedNumbers[1] + ' • ' + extractedNumbers[2] + '</span>';
+            } else if (final || interim) {
+                var tempBox = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>';
+                tempBox += 'Распознано: ' + extractedNumbers.length + '/3 чисел</span><br>';
+                if (extractedNumbers.length > 0) {
+                    tempBox += '<span style="font-size:14px;font-weight:700">' + extractedNumbers.join(' • ') + '</span>';
+                }
+                if (interim) {
+                    tempBox += '<span class="transcript-interim" style="margin-top:8px;display:block">' + interim + '</span>';
+                }
+                box.innerHTML = tempBox;
+            }
         };
         
         recognition.onerror = function(event) { 
             console.error("Speech error:", event.error); 
-            stopListening(); 
-            if (event.error === "no-speech") { 
-                showToast("Речь не обнаружена. Повторите фразу.", "info"); 
-            } else if (event.error !== "aborted") { 
-                showToast("Ошибка: " + event.error, "err"); 
+            if (event.error !== "aborted") { 
+                showToast("Ошибка микрофона: " + event.error, "err"); 
             } 
         };
         
         recognition.onend = function() { 
-            stopListening(); 
+            stopTimer();
+            // Проверяем есть ли 3 числа при завершении
+            if (extractedNumbers.length >= 3) {
+                processExtractedNumbers();
+            } else if (extractedNumbers.length > 0) {
+                showToast("⚠ Распознано только " + extractedNumbers.length + " число(а). Повторите фразу с 3 числами.", "err");
+                resetVoice();
+            }
+            stopListening();
         };
+    }
+
+    function extractNumbers(text) {
+        // Регулярное выражение для поиска всех чисел (включая через дефис)
+        var numberPattern = /\b(\d{1,3})\b/g;
+        var matches;
+        extractedNumbers = [];
+        
+        while ((matches = numberPattern.exec(text)) !== null) {
+            var num = parseInt(matches[1], 10);
+            // Фильтруем числа в разумном диапазоне для давления/пульса
+            if (num >= 20 && num <= 300) {
+                extractedNumbers.push(num);
+            }
+        }
+        
+        // Берем только первые 3 числа
+        extractedNumbers = extractedNumbers.slice(0, 3);
+    }
+
+    function startTimer() {
+        var remainingTime = 15;
+        var timerDisplay = document.getElementById("timerDisplay");
+        var timerValue = document.getElementById("timerValue");
+        
+        timerDisplay.style.display = "block";
+        timerValue.textContent = remainingTime;
+        
+        var timerInterval = setInterval(function() {
+            remainingTime--;
+            timerValue.textContent = remainingTime;
+            
+            if (remainingTime <= 0) {
+                clearInterval(timerInterval);
+                timerDisplay.style.display = "none";
+                // Завершаем распознавание
+                if (recognition && isListening) {
+                    recognition.stop();
+                }
+            }
+        }, 1000);
+        
+        listeningTimeout = timerInterval;
+    }
+
+    function stopTimer() {
+        if (listeningTimeout) {
+            clearInterval(listeningTimeout);
+            listeningTimeout = null;
+        }
+        document.getElementById("timerDisplay").style.display = "none";
     }
 
     function toggleListen() { 
         if (isListening) { 
-            if (recognition) { recognition.stop(); } 
+            if (recognition) { 
+                recognition.stop(); 
+            } 
         } else { 
             startListening(); 
         } 
@@ -286,15 +371,17 @@
     function startListening() {
         if (!recognition) { return; }
         if (micStream) { micStream.getTracks().forEach(function(t) { t.enabled = true; }); }
+        
         var box = document.getElementById("transcriptBox");
-        box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Слушаю вашу фразу...</span>';
+        box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Слушаю (15 сек)...</span>';
         box.classList.add("active");
         document.getElementById("resCard").classList.add("hidden");
+        
         try { 
             recognition.start(); 
             isListening = true; 
             document.getElementById("micBtn").classList.add("listening"); 
-            document.getElementById("micStatus").textContent = "Произносите фразу..."; 
+            document.getElementById("micStatus").textContent = "Произносите 3 числа..."; 
         } catch(e) { 
             console.error(e); 
         }
@@ -310,72 +397,58 @@
         } 
     }
 
+    function processExtractedNumbers() {
+        if (extractedNumbers.length < 3) {
+            showToast("Недостаточно чисел для обработки", "err");
+            return;
+        }
+        
+        var sys = extractedNumbers[0];
+        var dia = extractedNumbers[1];
+        var pulse = extractedNumbers[2];
+        
+        // Валидация: SYS должно быть больше DIA
+        if (sys < dia) {
+            // Пробуем переставить
+            var temp = sys;
+            sys = dia;
+            dia = temp;
+        }
+        
+        // Проверяем диапазоны
+        if (sys < 50 || sys > 260) { showToast("SYS вне диапазона (50-260)", "err"); resetVoice(); return; }
+        if (dia < 30 || dia > 160) { showToast("DIA вне диапазона (30-160)", "err"); resetVoice(); return; }
+        if (pulse < 30 || pulse > 220) { showToast("Пульс вне диапазона (30-220)", "err"); resetVoice(); return; }
+        
+        document.getElementById("iSys").value = sys;
+        document.getElementById("iDia").value = dia;
+        document.getElementById("iPls").value = pulse;
+        
+        // Показываем карточку результатов
+        var rc = document.getElementById("resCard");
+        rc.classList.remove("hidden");
+        rc.classList.remove("fade-in");
+        void rc.offsetWidth;
+        rc.classList.add("fade-in");
+        
+        // Обновляем статус
+        var st = bpStatus(sys, dia);
+        var statEl = document.getElementById("resStat");
+        statEl.innerHTML = '<div style="margin-bottom:12px">' + badgeHTML(st) + '</div>';
+        statEl.innerHTML += '<p style="font-size:12px;color:var(--fg-m);line-height:1.5">Распознано:<br>SYS: ' + sys + ' мм рт.ст.<br>DIA: ' + dia + ' мм рт.ст.<br>Пульс: ' + pulse + ' уд/мин</p>';
+        
+        showToast("✓ Давление распознано! Проверьте и сохраните.", "ok");
+    }
+
     function resetVoice() { 
         document.getElementById("resCard").classList.add("hidden"); 
         document.getElementById("transcriptBox").innerHTML = '<span style="color:var(--fg-m);opacity:.5">Распознанный текст появится здесь...</span>'; 
         document.getElementById("iSys").value = ""; 
         document.getElementById("iDia").value = ""; 
         document.getElementById("iPls").value = ""; 
-        document.getElementById("resStat").innerHTML = ""; 
-    }
-
-    function parseBloodPressureMessage(text) {
-        // Преобразуем текст в нижний регистр для поиска
-        var lowerText = text.toLowerCase();
-        
-        // Ищем ключевые фразы
-        var hasPressure = lowerText.indexOf("кровяное давление") !== -1 || lowerText.indexOf("давление") !== -1;
-        var hasSystolic = lowerText.indexOf("систолическое") !== -1 || lowerText.indexOf("систолич") !== -1;
-        var hasDiastolic = lowerText.indexOf("диастолическое") !== -1 || lowerText.indexOf("диастолич") !== -1;
-        var hasPulse = lowerText.indexOf("пульс") !== -1;
-        
-        // Если это похоже на сообщение о давлении
-        if (hasPressure && (hasSystolic || hasDiastolic)) {
-            var sys = null, dia = null, pulse = null;
-            
-            // Извлекаем все числа из текста
-            var numbers = text.match(/\b(\d{2,3})\b/g);
-            
-            if (numbers && numbers.length >= 2) {
-                // Обычно порядок: систолическое, диастолическое, пульс
-                sys = parseInt(numbers[0], 10);
-                dia = parseInt(numbers[1], 10);
-                if (numbers.length >= 3 && hasPulse) {
-                    pulse = parseInt(numbers[2], 10);
-                }
-                
-                // Валидация значений
-                if (sys >= 50 && sys <= 260 && dia >= 30 && dia <= 160) {
-                    document.getElementById("iSys").value = sys;
-                    document.getElementById("iDia").value = dia;
-                    if (pulse && pulse >= 30 && pulse <= 220) {
-                        document.getElementById("iPls").value = pulse;
-                    }
-                    
-                    // Показываем карточку результатов
-                    var rc = document.getElementById("resCard");
-                    rc.classList.remove("hidden");
-                    rc.classList.remove("fade-in");
-                    void rc.offsetWidth;
-                    rc.classList.add("fade-in");
-                    
-                    // Обновляем статус
-                    var st = bpStatus(sys, dia);
-                    var statEl = document.getElementById("resStat");
-                    statEl.innerHTML = '<div style="margin-bottom:12px">' + badgeHTML(st) + '</div>';
-                    statEl.innerHTML += '<p style="font-size:12px;color:var(--fg-m);line-height:1.5">Распознано:<br>SYS: ' + sys + ' мм рт.ст.<br>DIA: ' + dia + ' мм рт.ст.';
-                    if (pulse) {
-                        statEl.innerHTML += '<br>Пульс: ' + pulse + ' уд/мин';
-                    }
-                    statEl.innerHTML += '</p>';
-                    
-                    showToast("✓ Давление распознано! Проверьте и сохраните.", "ok");
-                    return;
-                }
-            }
-        }
-        
-        showToast("⚠ Не удалось распознать давление. Повторите фразу.", "err");
+        document.getElementById("resStat").innerHTML = "";
+        extractedNumbers = [];
+        allRecognizedText = "";
     }
 
     function bpStatus(sys, dia) {
@@ -409,12 +482,7 @@
             return; 
         } 
         
-        var pulseVal = null; 
-        if (!isNaN(p) && p > 0) { 
-            pulseVal = p; 
-        } 
-        
-        M.push({ id: Date.now(), date: new Date().toISOString(), sys: s, dia: d, pulse: pulseVal }); 
+        M.push({ id: Date.now(), date: new Date().toISOString(), sys: s, dia: d, pulse: p }); 
         saveData(); 
         renderAll(); 
         showToast("✓ Измерение сохранено!", "ok"); 
@@ -427,7 +495,7 @@
 
     function saveData() { localStorage.setItem("bp_data", JSON.stringify(M)); }
 
-    function exportCSV() { if (!M.length) { showToast("Нет данных для экспорта", "err"); return; } var csv = "\uFEFFДата/Время;SYS;DIA;Пульс;Статус\n"; for (var i = 0; i < M.length; i++) { var m = M[i]; var st = bpStatus(m.sys, m.dia); var pls = "-"; if (m.pulse !== null) { pls = m.pulse; } csv += fmtDate(m.date) + ";" + m.sys + ";" + m.dia + ";" + pls + ";" + st.label + "\n"; } var blob = new Blob([csv], { type: "text/csv;charset=utf-8" }); var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "bp_" + new Date().toISOString().slice(0, 10) + ".csv"; a.click(); URL.revokeObjectURL(a.href); showToast("CSV сохранён", "ok"); }
+    function exportCSV() { if (!M.length) { showToast("Нет данных для экспорта", "err"); return; } var csv = "\uFEFFДата/Время;SYS;DIA;Пульс;Статус\n"; for (var i = 0; i < M.length; i++) { var m = M[i]; var st = bpStatus(m.sys, m.dia); csv += fmtDate(m.date) + ";" + m.sys + ";" + m.dia + ";" + m.pulse + ";" + st.label + "\n"; } var blob = new Blob([csv], { type: "text/csv;charset=utf-8" }); var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "bp_" + new Date().toISOString().slice(0, 10) + ".csv"; a.click(); URL.revokeObjectURL(a.href); showToast("CSV сохранён", "ok"); }
 
     function triggerImport() { document.getElementById("csvFileInput").click(); }
 
@@ -453,9 +521,9 @@
 
     function renderAll() { renderStats(); renderTable(); renderChart(); if (M.length > 0) { document.getElementById("btnClear").style.display = "inline-flex"; } else { document.getElementById("btnClear").style.display = "none"; } }
 
-    function renderStats() { var eS = document.getElementById("sSys"); var eD = document.getElementById("sDia"); var eP = document.getElementById("sPls"); if (M.length > 0) { var last = M[M.length - 1]; var st = bpStatus(last.sys, last.dia); eS.textContent = last.sys; eD.textContent = last.dia; eP.textContent = "--"; if (last.pulse !== null) { eP.textContent = last.pulse; } eS.style.color = st.color; eD.style.color = st.color; } else { eS.textContent = "--"; eD.textContent = "--"; eP.textContent = "--"; eS.style.color = ""; eD.style.color = ""; } }
+    function renderStats() { var eS = document.getElementById("sSys"); var eD = document.getElementById("sDia"); var eP = document.getElementById("sPls"); if (M.length > 0) { var last = M[M.length - 1]; var st = bpStatus(last.sys, last.dia); eS.textContent = last.sys; eD.textContent = last.dia; eP.textContent = last.pulse; eS.style.color = st.color; eD.style.color = st.color; } else { eS.textContent = "--"; eD.textContent = "--"; eP.textContent = "--"; eS.style.color = ""; eD.style.color = ""; } }
 
-    function renderTable() { var tb = document.getElementById("tBody"); var em = document.getElementById("emSt"); document.getElementById("mCnt").textContent = M.length + " " + pluralRu(M.length, "запись", "записи", "записей"); if (M.length === 0) { tb.innerHTML = ""; em.classList.remove("hidden"); return; } em.classList.add("hidden"); tb.innerHTML = ""; var rev = M.slice().reverse(); for (var idx = 0; idx < rev.length; idx++) { var m = rev[idx]; var num = M.length - idx; var st = bpStatus(m.sys, m.dia); var tr = document.createElement("tr"); tr.className = "row-in"; tr.style.animationDelay = (idx * 30) + "ms"; var pls = '<span style="color:var(--fg-m)">--</span>'; if (m.pulse !== null) { pls = '<span style="font-family:Outfit;font-weight:700;font-size:15px">' + m.pulse + "</span>"; } tr.innerHTML = '<td style="color:var(--fg-m);font-size:12px;font-weight:600">' + num + "</td>" + '<td style="font-size:13px;white-space:nowrap">' + fmtDate(m.date) + "</td>" + '<td><span style="font-family:Outfit;font-weight:800;font-size:16px;color:' + st.color + '">' + m.sys + "</span></td>" + '<td><span style="font-family:Outfit;font-weight:800;font-size:16px">' + m.dia + "</span></td>" + "<td>" + pls + "</td>" + "<td>" + badgeHTML(st) + "</td>" + '<td><button class="btn-d" onclick="delMeas(' + m.id + ')" aria-label="Удалить"><i class="fa-solid fa-xmark"></i></button></td>'; tb.appendChild(tr); } }
+    function renderTable() { var tb = document.getElementById("tBody"); var em = document.getElementById("emSt"); document.getElementById("mCnt").textContent = M.length + " " + pluralRu(M.length, "запись", "записи", "записей"); if (M.length === 0) { tb.innerHTML = ""; em.classList.remove("hidden"); return; } em.classList.add("hidden"); tb.innerHTML = ""; var rev = M.slice().reverse(); for (var idx = 0; idx < rev.length; idx++) { var m = rev[idx]; var num = M.length - idx; var st = bpStatus(m.sys, m.dia); var tr = document.createElement("tr"); tr.className = "row-in"; tr.style.animationDelay = (idx * 30) + "ms"; var tr_html = '<td style="color:var(--fg-m);font-size:12px;font-weight:600">' + num + "</td>" + '<td style="font-size:13px;white-space:nowrap">' + fmtDate(m.date) + "</td>" + '<td><span style="font-family:Outfit;font-weight:800;font-size:16px;color:' + st.color + '">' + m.sys + "</span></td>" + '<td><span style="font-family:Outfit;font-weight:800;font-size:16px">' + m.dia + "</span></td>" + '<td><span style="font-family:Outfit;font-weight:700;font-size:15px">' + m.pulse + "</span></td>" + "<td>" + badgeHTML(st) + "</td>" + '<td><button class="btn-d" onclick="delMeas(' + m.id + ')" aria-label="Удалить"><i class="fa-solid fa-xmark"></i></button></td>'; tr.innerHTML = tr_html; tb.appendChild(tr); } }
 
     function renderChart() { var cc = document.getElementById("chartC"); if (M.length < 2) { cc.classList.add("hidden"); if (chart) { chart.destroy(); chart = null; } return; } cc.classList.remove("hidden"); var labels = []; var sysD = []; var diaD = []; var plsD = []; for (var i = 0; i < M.length; i++) { var d = new Date(M[i].date); labels.push(pad2(d.getHours()) + ":" + pad2(d.getMinutes())); sysD.push(M[i].sys); diaD.push(M[i].dia); plsD.push(M[i].pulse); } if (chart) { chart.destroy(); } var ctx = document.getElementById("bpCh").getContext("2d"); chart = new Chart(ctx, { type: "line", data: { labels: labels, datasets: [ { label: "SYS", data: sysD, borderColor: "#ff5c5c", backgroundColor: "rgba(255,92,92,.08)", borderWidth: 2.5, pointBackgroundColor: "#ff5c5c", pointRadius: 4, tension: 0.35, fill: true }, { label: "DIA", data: diaD, borderColor: "#00e09e", backgroundColor: "rgba(0,224,158,.08)", borderWidth: 2.5, pointBackgroundColor: "#00e09e", pointRadius: 4, tension: 0.35, fill: true }, { label: "Пульс", data: plsD, borderColor: "#6eb5ff", backgroundColor: "rgba(110,181,255,.05)", borderWidth: 1.5, borderDash: [5, 4], pointBackgroundColor: "#6eb5ff", pointRadius: 3, tension: 0.35, fill: false, spanGaps: true } ] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false }, plugins: { legend: { position: "top", labels: { color: "#6b8578", font: { family: "Outfit", size: 12, weight: "600" }, boxWidth: 14, boxHeight: 2, padding: 16 } }, tooltip: { backgroundColor: "rgba(14,22,17,.95)", titleColor: "#e4ede8", bodyColor: "#e4ede8", borderColor: "rgba(0,224,158,.2)", borderWidth: 1, padding: 12, cornerRadius: 8 } }, scales: { x: { grid: { color: "rgba(0,224,158,.05)" }, ticks: { color: "#6b8578", font: { family: "DM Sans", size: 11 } } }, y: { grid: { color: "rgba(0,224,158,.05)" }, ticks: { color: "#6b8578", font: { family: "Outfit", size: 11 } }, suggestedMin: 40, suggestedMax: 180 } } } }); }
 
