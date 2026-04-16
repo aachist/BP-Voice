@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BP Voice - Голосовой ввод давления</title>
+    <title>BP Voice - Голосовой ввод давле��ия</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -236,6 +236,7 @@
     var listenTimerInterval = null;
     var listenStartTime = 0;
     var allTranscript = '';
+    var finishCheckTimer = null;
 
     try { var saved = localStorage.getItem('bp_data'); if (saved) M = JSON.parse(saved); } catch(e) { M = []; }
 
@@ -295,7 +296,7 @@
         var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         recognition = new SR(); 
         recognition.lang = 'ru-RU'; 
-        recognition.continuous = true;  // ← КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: continuous = true
+        recognition.continuous = true;
         recognition.interimResults = true; 
         recognition.maxAlternatives = 1;
         
@@ -306,58 +307,28 @@
                 else interim += event.results[i][0].transcript;
             }
             
-            // Накапливаем весь текст
             if (final) allTranscript += ' ' + final;
             
             var box = document.getElementById('transcriptBox');
             box.innerHTML = allTranscript + (interim ? '<span class="transcript-interim">' + interim + '</span>' : '');
             box.classList.add('active');
-            
-            // Проверяем условие завершения
-            checkFinishCondition();
         };
         
         recognition.onerror = function(event) {
             console.error('Speech error:', event.error);
-            if (event.error === 'no-speech') {
-                // Перезапускаем распознавание, если нет речи
-                if (isListening) {
-                    try { recognition.start(); } catch(e) {}
-                }
-            } else if (event.error !== 'aborted') {
+            if (event.error !== 'aborted' && event.error !== 'no-speech') {
                 showToast('Ошибка: ' + event.error, 'err');
-                stopListening();
             }
         };
         
         recognition.onend = function() {
             console.log('Recognition ended');
-            if (isListening) {
-                // Перезапускаем, если нужно продолжить слушать
-                try { recognition.start(); } catch(e) {}
-            }
         };
-    }
-
-    function checkFinishCondition() {
-        // Проверяем: прошло ли минимум 15 сек?
-        var elapsed = Date.now() - listenStartTime;
-        
-        // Ищем ТОЛЬКО ЧИСЛА (2-3 цифры)
-        var nums = allTranscript.match(/\b\d{2,3}\b/g) || [];
-        
-        // Условие: если прошло 15+ сек И найдены 3+ числа
-        if (elapsed >= 15000 && nums.length >= 3) {
-            stopListening();
-            parseAndFill(allTranscript);
-            allTranscript = '';
-        }
     }
 
     function toggleListen() { 
         if (isListening) { 
-            if (recognition) recognition.stop(); 
-            stopListening();
+            stopListeningForce();
         } else { 
             startListening(); 
         } 
@@ -381,20 +352,34 @@
             document.getElementById('micBtn').classList.add('listening');
             document.getElementById('micStatus').textContent = 'Говорите (15 сек)';
             
-            // Таймер отсчёта оставшихся секунд
+            // Таймер отсчёта
             if (listenTimerInterval) clearInterval(listenTimerInterval);
             listenTimerInterval = setInterval(function() {
                 var elapsed = Math.floor((Date.now() - listenStartTime) / 1000);
                 var remaining = Math.max(0, 15 - elapsed);
                 document.getElementById('micStatus').textContent = 'Говорите (' + remaining + ' сек)';
-                
-                if (elapsed >= 15) {
-                    clearInterval(listenTimerInterval);
-                }
             }, 1000);
+            
+            // Таймер проверки условий завершения (каждые 500мс)
+            if (finishCheckTimer) clearInterval(finishCheckTimer);
+            finishCheckTimer = setInterval(checkFinishCondition, 500);
             
         } catch(e) {
             console.error('Start error:', e);
+        }
+    }
+    
+    function checkFinishCondition() {
+        if (!isListening) return;
+        
+        var elapsed = Date.now() - listenStartTime;
+        var nums = allTranscript.match(/\b\d{2,3}\b/g) || [];
+        
+        // Условие: если прошло 15+ сек И найдены 3+ числа
+        if (elapsed >= 15000 && nums.length >= 3) {
+            console.log('Условие завершения выполнено! Прошло ' + Math.floor(elapsed/1000) + ' сек, найдено ' + nums.length + ' чисел');
+            stopListeningForce();
+            finishRecognition();
         }
     }
     
@@ -405,9 +390,19 @@
         document.getElementById('transcriptBox').classList.remove('active');
         if (micStream) micStream.getTracks().forEach(function(t) { t.enabled = false; });
         if (listenTimerInterval) clearInterval(listenTimerInterval);
+        if (finishCheckTimer) clearInterval(finishCheckTimer);
+    }
+
+    function stopListeningForce() {
+        stopListening();
         if (recognition) {
             try { recognition.stop(); } catch(e) {}
         }
+    }
+
+    function finishRecognition() {
+        parseAndFill(allTranscript);
+        allTranscript = '';
     }
     
     function resetVoice() {
