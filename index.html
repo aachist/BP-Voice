@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BP Voice - Голосовой ввод давле��ия</title>
+    <title>BP Voice - Голосовой ввод давления</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -259,16 +259,30 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Запрос доступа...';
         errEl.textContent = '';
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            errEl.textContent = 'Браузер не поддерживает доступ к микрофону.'; 
+        
+        if (!navigator.mediaDevices) {
+            errEl.textContent = 'Браузер не поддерживает MediaDevices API.';
             errEl.style.color = 'var(--danger)';
             btn.disabled = false; 
             btn.innerHTML = '<i class="fa-solid fa-microphone mr-2"></i>Разрешить микрофон'; 
             return;
         }
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+
+        var constraints = {
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        };
+
+        navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             micStream = stream;
-            stream.getTracks().forEach(function(t) { t.enabled = false; });
+            console.log('Микрофон получен:', stream.getTracks());
+            stream.getTracks().forEach(function(t) { 
+                t.enabled = false;
+                console.log('Трек добавлен:', t.kind, t.label);
+            });
             initSpeech();
             document.getElementById('permSection').classList.add('hidden');
             var vs = document.getElementById('voiceSection'); 
@@ -276,12 +290,22 @@
             vs.classList.add('fade-in');
             showToast('Микрофон подключён. Теперь можно диктовать.', 'ok');
         }).catch(function(err) {
-            console.error('getUserMedia:', err);
+            console.error('getUserMedia ошибка:', err);
             btn.disabled = false; 
             btn.innerHTML = '<i class="fa-solid fa-microphone mr-2"></i>Разрешить микрофон';
-            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') errEl.textContent = 'Доступ запрещён. Разрешите в адресной строке.';
-            else if (err.name === 'NotFoundError') errEl.textContent = 'Микрофон не найден.';
-            else errEl.textContent = 'Ошибка: ' + err.message;
+            
+            var errorMsg = 'Ошибка: ' + err.message;
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                errorMsg = 'Доступ запрещён. Разрешите микрофон в браузере.';
+            } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                errorMsg = 'Микрофон не найден.';
+            } else if (err.name === 'NotReadableError') {
+                errorMsg = 'Микрофон занят другим приложением.';
+            } else if (err.name === 'SecurityError') {
+                errorMsg = 'Проблема безопасности. Используйте HTTPS.';
+            }
+            
+            errEl.textContent = errorMsg;
             errEl.style.color = 'var(--danger)';
         });
     }
@@ -294,17 +318,28 @@
 
     function initSpeech() {
         var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
+        
         recognition = new SR(); 
         recognition.lang = 'ru-RU'; 
         recognition.continuous = true;
         recognition.interimResults = true; 
         recognition.maxAlternatives = 1;
         
+        recognition.onstart = function() {
+            console.log('Speech recognition started');
+        };
+        
         recognition.onresult = function(event) {
             var interim = '', final = '';
             for (var i = event.resultIndex; i < event.results.length; i++) { 
-                if (event.results[i].isFinal) final += event.results[i][0].transcript; 
-                else interim += event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    final += event.results[i][0].transcript;
+                    console.log('Final:', event.results[i][0].transcript);
+                }
+                else {
+                    interim += event.results[i][0].transcript;
+                }
             }
             
             if (final) allTranscript += ' ' + final;
@@ -335,8 +370,25 @@
     }
     
     function startListening() {
-        if (!recognition) return;
-        if (micStream) micStream.getTracks().forEach(function(t) { t.enabled = true; });
+        if (!recognition) {
+            showToast('Speech Recognition не инициализирован', 'err');
+            return;
+        }
+        
+        if (!micStream) {
+            showToast('Микрофон не подключен', 'err');
+            return;
+        }
+        
+        if (micStream.getTracks().length === 0) {
+            showToast('Микрофон перезагрузился, запросите доступ заново', 'err');
+            return;
+        }
+        
+        micStream.getTracks().forEach(function(t) { 
+            t.enabled = true;
+            console.log('Трек включен:', t.kind);
+        });
         
         var box = document.getElementById('transcriptBox');
         box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Слушаю (минимум 15 сек)...</span>';
@@ -351,6 +403,7 @@
             isListening = true; 
             document.getElementById('micBtn').classList.add('listening');
             document.getElementById('micStatus').textContent = 'Говорите (15 сек)';
+            console.log('Speech recognition started');
             
             // Таймер отсчёта
             if (listenTimerInterval) clearInterval(listenTimerInterval);
@@ -360,12 +413,13 @@
                 document.getElementById('micStatus').textContent = 'Говорите (' + remaining + ' сек)';
             }, 1000);
             
-            // Таймер проверки условий завершения (каждые 500мс)
+            // Таймер проверки условий завершения
             if (finishCheckTimer) clearInterval(finishCheckTimer);
             finishCheckTimer = setInterval(checkFinishCondition, 500);
             
         } catch(e) {
             console.error('Start error:', e);
+            showToast('Ошибка запуска: ' + e.message, 'err');
         }
     }
     
@@ -377,7 +431,7 @@
         
         // Условие: если прошло 15+ сек И найдены 3+ числа
         if (elapsed >= 15000 && nums.length >= 3) {
-            console.log('Условие завершения выполнено! Прошло ' + Math.floor(elapsed/1000) + ' сек, найдено ' + nums.length + ' чисел');
+            console.log('Условие завершения: ' + Math.floor(elapsed/1000) + ' сек, ' + nums.length + ' чисел');
             stopListeningForce();
             finishRecognition();
         }
