@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0"></script>
     <style>
         :root { --bg:#070b09; --bg-card:rgba(14,22,17,.85); --bg-card-h:rgba(18,28,22,.95); --fg:#e4ede8; --fg-m:#6b8578; --accent:#00e09e; --accent-d:#00b37e; --accent-g:rgba(0,224,158,.15); --border:rgba(0,224,158,.12); --danger:#ff5c5c; --warn:#ffb347; --info:#6eb5ff; }
         * { box-sizing:border-box; margin:0; padding:0; }
@@ -32,9 +33,7 @@
         .stat-card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:16px 20px; transition:all .3s; }
         .stat-card:hover { transform:translateY(-2px); border-color:rgba(0,224,158,.25); box-shadow:0 8px 30px rgba(0,224,158,.08); }
         .bp-table { width:100%; border-collapse:separate; border-spacing:0; }
-        .bp-table thead th { background:rgba(0,224,158,.06); padding:12px 14px; text-align:left; font-family:'Outfit',sans-serif; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg-m); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; }
-        .bp-table thead th:first-child { border-radius:8px 0 0 0; }
-        .bp-table thead th:last-child { border-radius:0 8px 0 0; }
+        .bp-table thead th { background:rgba(0,224,158,.06); padding:12px 14px; text-align:left; font-family:'Outfit',sans-serif; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg-m); border-bottom:1px solid var(--border); }
         .bp-table tbody tr { transition:background .2s; }
         .bp-table tbody tr:hover { background:rgba(0,224,158,.04); }
         .bp-table tbody td { padding:11px 14px; border-bottom:1px solid rgba(0,224,158,.05); font-size:14px; }
@@ -42,29 +41,22 @@
         .badge-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
         .btn-p { background:linear-gradient(135deg,var(--accent-d),var(--accent)); color:#070b09; font-weight:700; font-family:'Outfit',sans-serif; padding:12px 28px; border-radius:10px; border:none; cursor:pointer; transition:all .3s; font-size:15px; }
         .btn-p:hover { transform:translateY(-1px); box-shadow:0 6px 25px rgba(0,224,158,.3); }
-        .btn-p:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+        .btn-p:disabled { opacity:.5; cursor:not-allowed; }
         .btn-s { background:rgba(0,224,158,.08); color:var(--accent); font-weight:600; font-family:'Outfit',sans-serif; padding:10px 20px; border-radius:10px; border:1px solid var(--border); cursor:pointer; transition:all .3s; font-size:14px; }
         .btn-s:hover { background:rgba(0,224,158,.15); border-color:rgba(0,224,158,.3); }
-        .btn-d { background:rgba(255,92,92,.08); color:var(--danger); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,92,92,.15); cursor:pointer; transition:all .2s; font-size:13px; }
-        .btn-d:hover { background:rgba(255,92,92,.18); border-color:rgba(255,92,92,.35); }
-        .btn-danger { background:rgba(255,92,92,.12); color:var(--danger); font-weight:600; font-family:'Outfit',sans-serif; padding:10px 20px; border-radius:10px; border:1px solid rgba(255,92,92,.2); cursor:pointer; transition:all .3s; font-size:14px; }
-        .btn-danger:hover { background:rgba(255,92,92,.2); border-color:rgba(255,92,92,.4); }
-        .bp-in { background:rgba(0,224,158,.04); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--fg); font-family:'Outfit',sans-serif; font-size:20px; font-weight:800; width:100%; transition:all .2s; outline:none; }
+        .btn-d { background:rgba(255,92,92,.08); color:var(--danger); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,92,92,.15); cursor:pointer; font-size:13px; }
+        .btn-d:hover { background:rgba(255,92,92,.18); }
+        .btn-danger { background:rgba(255,92,92,.12); color:var(--danger); font-weight:600; padding:10px 20px; border-radius:10px; border:1px solid rgba(255,92,92,.2); cursor:pointer; font-size:14px; }
+        .bp-in { background:rgba(0,224,158,.04); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--fg); font-family:'Outfit',sans-serif; font-size:20px; font-weight:800; width:100%; outline:none; }
         .bp-in:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,224,158,.1); }
-        .bp-in::placeholder { color:var(--fg-m); font-weight:400; font-size:14px; }
-        .mic-btn { width:120px; height:120px; border-radius:50%; border:3px solid var(--border); background:rgba(0,224,158,.05); color:var(--accent); cursor:pointer; transition:all .3s; display:flex; align-items:center; justify-content:center; position:relative; outline:none; }
+        .mic-btn { width:120px; height:120px; border-radius:50%; border:3px solid var(--border); background:rgba(0,224,158,.05); color:var(--accent); cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative; font-size:40px; transition:all .3s; }
         .mic-btn:hover:not(:disabled) { border-color:var(--accent); background:rgba(0,224,158,.1); transform:scale(1.05); }
+        .mic-btn:disabled { opacity:.5; cursor:not-allowed; }
         .mic-btn.listening { border-color:var(--danger); background:rgba(255,92,92,.1); color:var(--danger); animation:micPulse 1.5s ease-in-out infinite; }
-        .mic-btn.listening::before { content:''; position:absolute; inset:-12px; border-radius:50%; border:2px solid var(--danger); opacity:0; animation:micRipple 1.5s ease-out infinite; }
-        .mic-btn.listening::after { content:''; position:absolute; inset:-24px; border-radius:50%; border:2px solid var(--danger); opacity:0; animation:micRipple 1.5s ease-out infinite .5s; }
         @keyframes micPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-        @keyframes micRipple { 0%{transform:scale(.8);opacity:.6} 100%{transform:scale(1.2);opacity:0} }
-        .mic-icon { font-size:40px; transition:all .3s; }
-        .mic-btn.listening .mic-icon { transform:scale(1.1); }
-        .transcript-box { background:rgba(0,224,158,.03); border:1px solid var(--border); border-radius:12px; padding:16px; min-height:100px; font-size:14px; line-height:1.6; color:var(--fg); width:100%; transition:all .3s; }
-        .transcript-box.active { border-color:rgba(0,224,158,.3); box-shadow:0 0 20px rgba(0,224,158,.05); }
-        .transcript-interim { color:var(--fg-m); font-style:italic; }
-        .timer-display { font-size:18px; font-weight:700; color:var(--accent); text-align:center; margin-bottom:8px; }
+        .transcript-box { background:rgba(0,224,158,.03); border:1px solid var(--border); border-radius:12px; padding:16px; min-height:100px; font-size:14px; line-height:1.6; color:var(--fg); }
+        .progress-bar { width:100%; height:4px; background:rgba(0,224,158,.1); border-radius:2px; margin:12px 0; overflow:hidden; }
+        .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent-d),var(--accent)); width:0%; transition:width .3s; }
         .toast { position:fixed; bottom:24px; right:24px; padding:14px 22px; border-radius:12px; font-weight:500; font-size:14px; z-index:1000; transform:translateY(80px); opacity:0; transition:all .45s cubic-bezier(.16,1,.3,1); backdrop-filter:blur(20px); max-width:400px; }
         .toast.show { transform:translateY(0); opacity:1; }
         .toast-ok { background:rgba(0,224,158,.14); border:1px solid rgba(0,224,158,.3); color:var(--accent); }
@@ -74,26 +66,12 @@
         @keyframes fi { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         .row-in { animation:ri .35s cubic-bezier(.16,1,.3,1) forwards; }
         @keyframes ri { from{opacity:0;transform:translateX(-16px)} to{opacity:1;transform:translateX(0)} }
-        .empty-s { text-align:center; padding:44px 24px; color:var(--fg-m); }
         .perm-box { background:rgba(0,224,158,.05); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center; }
         .perm-icon { font-size:32px; color:var(--accent); margin-bottom:12px; }
         .perm-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:16px; margin-bottom:6px; }
         .perm-text { font-size:13px; color:var(--fg-m); line-height:1.6; }
-        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); z-index:900; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; }
-        .modal-overlay.open { opacity:1; pointer-events:auto; }
-        .modal-box { background:#111a15; border:1px solid var(--border); border-radius:16px; padding:28px; max-width:480px; width:90%; transform:scale(.9); transition:transform .3s cubic-bezier(.16,1,.3,1); }
-        .modal-overlay.open .modal-box { transform:scale(1); }
-        .modal-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:18px; margin-bottom:8px; }
-        .modal-text { font-size:13px; color:var(--fg-m); line-height:1.6; margin-bottom:16px; }
-        .modal-actions { display:flex; flex-direction:column; gap:8px; }
-        .setup-box { background:rgba(0,224,158,.08); border:1px solid rgba(0,224,158,.2); border-radius:12px; padding:16px; margin-bottom:16px; }
-        .setup-box input { background:rgba(0,224,158,.04); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--fg); font-family:monospace; font-size:12px; width:100%; }
-        .setup-box input:focus { border-color:var(--accent); outline:none; }
-        .setup-label { font-size:12px; font-weight:600; color:var(--fg-m); margin-bottom:8px; display:block; }
-        ::-webkit-scrollbar { width:5px; height:5px; }
-        ::-webkit-scrollbar-track { background:transparent; }
-        ::-webkit-scrollbar-thumb { background:rgba(0,224,158,.18); border-radius:3px; }
-        @media(max-width:768px) { .bp-table thead th,.bp-table tbody td { padding:9px 10px; font-size:13px; } .bp-in { font-size:18px; } .mic-btn { width:100px; height:100px; } .mic-icon { font-size:32px; } }
+        .empty-s { text-align:center; padding:44px 24px; color:var(--fg-m); }
+        @media(max-width:768px) { .bp-table td { padding:8px 10px; font-size:12px; } .mic-btn { width:100px; height:100px; font-size:32px; } }
     </style>
 </head>
 <body class="relative">
@@ -107,36 +85,6 @@
     </div>
 
     <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none">
-    
-    <!-- Setup Modal for AssemblyAI -->
-    <div class="modal-overlay" id="setupModal">
-        <div class="modal-box">
-            <div class="modal-title"><i class="fa-solid fa-key mr-2" style="color:var(--info)"></i>Установка AssemblyAI</div>
-            <div class="modal-text">
-                <strong>1.</strong> Зарегистрируйтесь на <a href="https://www.assemblyai.com" target="_blank" style="color:var(--accent);text-decoration:underline">AssemblyAI.com</a> (600 минут в месяц бесплатно)<br>
-                <strong>2.</strong> Скопируйте ваш API ключ<br>
-                <strong>3.</strong> Вставьте ниже
-            </div>
-            <div class="setup-box">
-                <label class="setup-label">AssemblyAI API Key:</label>
-                <input type="password" id="apiKeyInput" placeholder="Вставьте ваш API ключ">
-                <button class="btn-p" style="width:100%;margin-top:12px;padding:10px 16px;font-size:13px" onclick="saveApiKey()">Сохранить</button>
-            </div>
-            <div id="apiKeyStatus" style="font-size:12px;color:var(--fg-m);text-align:center"></div>
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="importModal">
-        <div class="modal-box">
-            <div class="modal-title"><i class="fa-solid fa-file-import mr-2" style="color:var(--info)"></i>Импорт данных</div>
-            <div class="modal-text" id="importModalText"></div>
-            <div class="modal-actions">
-                <button class="btn-p" style="width:100%;text-align:center" onclick="doImportReplace()"><i class="fa-solid fa-arrows-rotate mr-2"></i>Заменить</button>
-                <button class="btn-s" style="width:100%;text-align:center" onclick="doImportAppend()"><i class="fa-solid fa-plus mr-2"></i>Добавить</button>
-                <button class="btn-s" style="width:100%;text-align:center;color:var(--fg-m)" onclick="cancelImport()">Отмена</button>
-            </div>
-        </div>
-    </div>
 
     <div class="relative z-10 min-h-screen flex flex-col">
         <header class="px-5 py-5 md:px-10 md:py-7">
@@ -147,11 +95,10 @@
                     </div>
                     <div>
                         <h1 class="font-display text-xl md:text-2xl tracking-tight" style="font-weight:800">BP Voice</h1>
-                        <p class="text-xs md:text-sm" style="color:var(--fg-m)">Голосовой ввод давления</p>
+                        <p class="text-xs md:text-sm" style="color:var(--fg-m)">Голосовой ввод</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap justify-end">
-                    <button onclick="showSetupModal()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-cog text-[10px]"></i><span class="hidden sm:inline">Ключ</span></button>
                     <button onclick="triggerImport()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-file-import text-[10px]"></i><span class="hidden sm:inline">CSV</span></button>
                     <button onclick="exportCSV()" class="btn-s text-xs md:text-sm inline-flex items-center gap-1.5"><i class="fa-solid fa-file-export text-[10px]"></i><span class="hidden sm:inline">CSV</span></button>
                     <button onclick="clearAll()" class="btn-danger text-xs md:text-sm inline-flex items-center gap-1.5" id="btnClear" style="display:none"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
@@ -166,31 +113,31 @@
                         <div class="perm-box">
                             <div class="perm-icon"><i class="fa-solid fa-microphone-lines"></i></div>
                             <div class="perm-title">Доступ к микрофону</div>
-                            <div class="perm-text">Разрешите доступ к микрофону для голосового ввода давления.</div>
+                            <div class="perm-text">Разрешьте доступ для голосового ввода давления</div>
                             <button class="btn-p" id="permBtn" onclick="requestMicPermission()" style="margin-top:16px"><i class="fa-solid fa-microphone mr-2"></i>Разрешить</button>
-                            <div class="perm-text" style="margin-top:12px;font-size:11px;opacity:.6" id="permError"></div>
+                            <div id="permError" style="margin-top:12px;font-size:11px;color:var(--danger)"></div>
                         </div>
                     </section>
                     <section class="card p-6 hidden" id="voiceSection">
-                        <h2 class="font-display text-base mb-5 text-center" style="font-weight:700"><i class="fa-solid fa-microphone mr-2 text-sm" style="color:var(--accent)"></i>Голосовой ввод <span class="text-[10px] uppercase" style="color:var(--accent);opacity:.7">AssemblyAI</span></h2>
+                        <h2 class="font-display text-base mb-5 text-center" style="font-weight:700"><i class="fa-solid fa-microphone mr-2"></i>Голосовой ввод <span class="text-[10px]" style="color:var(--accent);opacity:.7">Whisper</span></h2>
                         <div class="flex flex-col items-center">
-                            <button class="mic-btn" id="micBtn" onclick="toggleListen()" aria-label="Включить запись"><i class="fa-solid fa-microphone mic-icon"></i></button>
+                            <button class="mic-btn" id="micBtn" onclick="toggleListen()"><i class="fa-solid fa-microphone"></i></button>
                             <p class="text-sm mt-4 text-center" style="color:var(--fg-m)" id="micStatus">Нажмите, чтобы начать</p>
                         </div>
                         <div class="mt-5">
-                            <div class="timer-display" id="timerDisplay" style="display:none">⏱ <span id="timerValue">30</span>s</div>
+                            <div class="progress-bar" id="progressBar" style="display:none"><div class="progress-fill" id="progressFill"></div></div>
                             <div class="transcript-box" id="transcriptBox"><span style="color:var(--fg-m);opacity:.5">Распознанный текст появится здесь...</span></div>
                         </div>
                         <div class="mt-4 p-3 rounded-lg text-xs" style="background:rgba(110,181,255,.06);border:1px solid rgba(110,181,255,.12);color:var(--info)">
-                            <i class="fa-solid fa-circle-info mr-1.5"></i><strong>Скажите:</strong><br>"Сто тридцать на семьдесят пять, пульс шестьдесят четыре"
+                            <i class="fa-solid fa-circle-info mr-1.5"></i><strong>Скажите:</strong> "Сто тридцать на семьдесят пять, пульс шестьдесят"
                         </div>
                     </section>
                     <section class="card p-5 hidden" id="resCard">
-                        <h2 class="font-display text-base mb-4" style="font-weight:700"><i class="fa-solid fa-sliders mr-2 text-sm" style="color:var(--accent)"></i>Распознано</h2>
+                        <h2 class="font-display text-base mb-4" style="font-weight:700"><i class="fa-solid fa-sliders mr-2"></i>Распознано</h2>
                         <div class="grid grid-cols-3 gap-3 mb-3">
-                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">SYS</label><input type="number" class="bp-in text-center" id="iSys" placeholder="---" readonly></div>
-                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">DIA</label><input type="number" class="bp-in text-center" id="iDia" placeholder="---" readonly></div>
-                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">Пульс</label><input type="number" class="bp-in text-center" id="iPls" placeholder="---" readonly></div>
+                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">SYS</label><input type="number" class="bp-in text-center" id="iSys" readonly></div>
+                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">DIA</label><input type="number" class="bp-in text-center" id="iDia" readonly></div>
+                            <div><label class="text-[10px] uppercase tracking-wider block mb-1.5" style="color:var(--fg-m);font-weight:600">Пульс</label><input type="number" class="bp-in text-center" id="iPls" readonly></div>
                         </div>
                         <div id="resStat" class="mb-3.5"></div>
                         <div class="flex gap-2.5">
@@ -201,246 +148,249 @@
                 </div>
                 <div class="lg:col-span-7 space-y-5">
                     <div class="grid grid-cols-3 gap-3">
-                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m);font-weight:600">Последнее SYS</div><div class="font-display text-2xl" style="font-weight:800" id="sSys">--</div></div>
-                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m);font-weight:600">Последнее DIA</div><div class="font-display text-2xl" style="font-weight:800" id="sDia">--</div></div>
-                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m);font-weight:600">Последний пульс</div><div class="font-display text-2xl" style="font-weight:800" id="sPls">--</div></div>
+                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m)">Последнее SYS</div><div class="font-display text-2xl" id="sSys">--</div></div>
+                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m)">Последнее DIA</div><div class="font-display text-2xl" id="sDia">--</div></div>
+                        <div class="stat-card"><div class="text-[10px] uppercase tracking-wider mb-1" style="color:var(--fg-m)">Последний пульс</div><div class="font-display text-2xl" id="sPls">--</div></div>
                     </div>
                     <section class="card overflow-hidden">
                         <div class="px-5 py-3.5 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
-                            <h2 class="font-display text-base" style="font-weight:700"><i class="fa-solid fa-table-list mr-2 text-sm" style="color:var(--accent)"></i>История</h2>
+                            <h2 class="font-display text-base" style="font-weight:700"><i class="fa-solid fa-table-list mr-2"></i>История</h2>
                             <span class="text-xs" style="color:var(--fg-m)" id="mCnt">0 записей</span>
                         </div>
-                        <div class="overflow-x-auto" style="max-height:400px;overflow-y:auto">
-                            <table class="bp-table"><thead><tr><th style="width:36px">#</th><th>Дата</th><th>SYS</th><th>DIA</th><th>Пульс</th><th>Статус</th><th style="width:40px"></th></tr></thead><tbody id="tBody"></tbody></table>
-                            <div class="empty-s" id="emSt"><i class="fa-solid fa-microphone text-4xl" style="color:var(--accent);opacity:.3;margin-bottom:16px;display:block"></i><p class="font-display mb-0.5" style="font-weight:600">Нет данных</p></div>
+                        <div style="max-height:400px;overflow-y:auto">
+                            <table class="bp-table"><thead><tr><th>#</th><th>Дата</th><th>SYS</th><th>DIA</th><th>Пульс</th><th>Статус</th><th></th></tr></thead><tbody id="tBody"></tbody></table>
+                            <div class="empty-s" id="emSt"><i class="fa-solid fa-microphone" style="font-size:40px;opacity:.2;margin-bottom:12px;display:block"></i>Нет данных</div>
                         </div>
                     </section>
                 </div>
             </div>
         </main>
-        <footer class="px-5 py-5 text-center" style="border-top:1px solid var(--border)"><p class="text-[11px]" style="color:var(--fg-m);opacity:.7">📱 Данные только на вашем устройстве • 🎙️ AssemblyAI для распознавания • 🔒 Безопасно</p></footer>
+        <footer class="px-5 py-5 text-center" style="border-top:1px solid var(--border)"><p class="text-[11px]" style="color:var(--fg-m);opacity:.7">🎙️ Whisper в браузере • 🔒 Безопасно • 💾 Локально</p></footer>
     </div>
 
     <script>
-    var M = [];
-    var mediaRecorder = null;
-    var audioChunks = [];
-    var isListening = false;
-    var micStream = null;
-    var apiKey = localStorage.getItem("assemblyai_key") || "";
-    var listeningTimeout = null;
+    let M = [];
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isListening = false;
+    let micStream = null;
+    let modelLoaded = false;
 
-    try { var saved = localStorage.getItem("bp_data"); if (saved) { M = JSON.parse(saved); } } catch(e) { M = []; }
+    try { M = JSON.parse(localStorage.getItem("bp_data")) || []; } catch(e) { M = []; }
 
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", async function() {
         renderAll();
-        if (!apiKey) { showSetupModal(); }
-        document.getElementById("csvFileInput").addEventListener("change", function(e) { if (e.target.files.length) { handleCSVFile(e.target.files[0]); } e.target.value = ""; });
+        await initializeWhisper();
     });
 
-    function showSetupModal() { document.getElementById("setupModal").classList.add("open"); if (apiKey) { document.getElementById("apiKeyStatus").innerHTML = '✓ Ключ сохранен'; } }
-
-    function saveApiKey() {
-        var key = document.getElementById("apiKeyInput").value.trim();
-        if (!key || key.length < 10) { showToast("⚠ Введите корректный API ключ", "err"); return; }
-        apiKey = key;
-        localStorage.setItem("assemblyai_key", apiKey);
-        document.getElementById("apiKeyStatus").innerHTML = '✓ Сохранено!';
-        showToast("✓ API ключ сохранен", "ok");
-        setTimeout(() => { document.getElementById("setupModal").classList.remove("open"); }, 800);
+    async function initializeWhisper() {
+        try {
+            const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0');
+            window.whisper = pipeline;
+            modelLoaded = true;
+            showToast("✓ Whisper загружена", "ok");
+        } catch(e) {
+            showToast("❌ Ошибка загрузки Whisper: " + e.message, "err");
+        }
     }
 
     function requestMicPermission() {
-        if (!apiKey) { showToast("⚠ Настройте API ключ в параметрах", "err"); showSetupModal(); return; }
+        if (!modelLoaded) {
+            showToast("⏳ Whisper еще загружается...", "info");
+            return;
+        }
+        
         var btn = document.getElementById("permBtn");
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Запрос...';
         
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) { 
-            micStream = stream;
-            document.getElementById("permSection").classList.add("hidden"); 
-            var vs = document.getElementById("voiceSection"); 
-            vs.classList.remove("hidden"); 
-            vs.classList.add("fade-in"); 
-            showToast("✓ Микрофон подключён", "ok"); 
-        }).catch(function(err) { 
-            btn.disabled = false; 
-            btn.innerHTML = '<i class="fa-solid fa-microphone mr-2"></i>Разрешить'; 
-            showToast("❌ " + err.message, "err");
-        });
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                micStream = stream;
+                document.getElementById("permSection").classList.add("hidden");
+                var vs = document.getElementById("voiceSection");
+                vs.classList.remove("hidden");
+                vs.classList.add("fade-in");
+                showToast("✓ Микрофон подключён", "ok");
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-microphone mr-2"></i>Разрешить';
+                document.getElementById("permError").textContent = "Ошибка: " + err.message;
+                showToast("❌ " + err.message, "err");
+            });
     }
 
-    function toggleListen() { if (isListening) { stopListeningAndProcess(); } else { startListening(); } }
+    function toggleListen() {
+        if (isListening) {
+            stopListeningAndProcess();
+        } else {
+            startListening();
+        }
+    }
 
     function startListening() {
-        if (!apiKey) { showToast("⚠ API ключ не настроен", "err"); return; }
-        if (!micStream) { showToast("❌ Микрофон не подключен", "err"); return; }
+        if (!micStream) {
+            showToast("❌ Микрофон не подключен", "err");
+            return;
+        }
         
         audioChunks = [];
         mediaRecorder = new MediaRecorder(micStream);
         
-        mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) { audioChunks.push(e.data); } };
-        mediaRecorder.onstop = function() {
+        mediaRecorder.ondataavailable = e => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        
+        mediaRecorder.onstop = () => {
             var audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            sendToAssemblyAI(audioBlob);
+            processAudio(audioBlob);
         };
         
         var box = document.getElementById("transcriptBox");
-        box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Запись (макс 30 сек)...</span>';
+        box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-microphone mr-2"></i>Запись...</span>';
         box.classList.add("active");
         document.getElementById("resCard").classList.add("hidden");
+        document.getElementById("progressBar").style.display = "block";
         
-        try { 
-            mediaRecorder.start(); 
-            isListening = true; 
-            document.getElementById("micBtn").classList.add("listening"); 
-            document.getElementById("micStatus").textContent = "Говорите сейчас...";
-            startTimer();
-        } catch(e) { showToast("❌ Ошибка записи", "err"); }
+        try {
+            mediaRecorder.start();
+            isListening = true;
+            document.getElementById("micBtn").classList.add("listening");
+            document.getElementById("micStatus").textContent = "Говорите (макс 30 сек)";
+            
+            setTimeout(() => {
+                if (isListening) {
+                    mediaRecorder.stop();
+                    isListening = false;
+                    document.getElementById("micBtn").classList.remove("listening");
+                }
+            }, 30000);
+        } catch(e) {
+            showToast("❌ Ошибка: " + e.message, "err");
+        }
     }
-
-    function startTimer() {
-        var sec = 30;
-        var timerDisplay = document.getElementById("timerDisplay");
-        var timerValue = document.getElementById("timerValue");
-        timerDisplay.style.display = "block";
-        timerValue.textContent = sec;
-        
-        listeningTimeout = setInterval(function() {
-            sec--;
-            timerValue.textContent = sec;
-            if (sec <= 0) {
-                clearInterval(listeningTimeout);
-                if (isListening) { stopListeningAndProcess(); }
-            }
-        }, 1000);
-    }
-
-    function stopTimer() { if (listeningTimeout) { clearInterval(listeningTimeout); } document.getElementById("timerDisplay").style.display = "none"; }
 
     function stopListeningAndProcess() {
-        if (mediaRecorder && mediaRecorder.state !== "inactive") { mediaRecorder.stop(); }
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+        }
         isListening = false;
         document.getElementById("micBtn").classList.remove("listening");
         document.getElementById("micStatus").textContent = "Обработка...";
-        stopTimer();
     }
 
-    function sendToAssemblyAI(audioBlob) {
-        var box = document.getElementById("transcriptBox");
-        box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Отправляю на AssemblyAI...</span>';
+    async function processAudio(audioBlob) {
+        const box = document.getElementById("transcriptBox");
+        const progressBar = document.getElementById("progressBar");
+        const progressFill = document.getElementById("progressFill");
         
-        var fd = new FormData();
-        fd.append('file', audioBlob);
-        
-        fetch('https://api.assemblyai.com/v2/upload', {
-            method: 'POST',
-            headers: { 'Authorization': apiKey },
-            body: fd
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (!data.upload_url) { throw new Error('Upload failed'); }
-            return submitForTranscription(data.upload_url);
-        })
-        .catch(e => { showToast("❌ Ошибка: " + e.message, "err"); box.innerHTML = '<span style="color:var(--danger)">Ошибка загрузки</span>'; });
-    }
-
-    function submitForTranscription(audioUrl) {
-        var box = document.getElementById("transcriptBox");
-        box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Распознавание речи...</span>';
-        
-        fetch('https://api.assemblyai.com/v2/transcript', {
-            method: 'POST',
-            headers: { 'Authorization': apiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                audio_url: audioUrl,
-                language_code: 'ru'
-            })
-        })
-        .then(r => r.json())
-        .then(data => {
-            var transcriptId = data.id;
-            waitForTranscription(transcriptId);
-        })
-        .catch(e => { showToast("❌ Ошибка: " + e.message, "err"); });
-    }
-
-    function waitForTranscription(transcriptId, attempts = 0) {
-        if (attempts > 120) { showToast("❌ Timeout распознавания", "err"); return; }
-        
-        fetch('https://api.assemblyai.com/v2/transcript/' + transcriptId, {
-            headers: { 'Authorization': apiKey }
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status === 'completed') {
-                processTranscription(data.text);
-            } else if (data.status === 'failed') {
-                showToast("❌ Ошибка распознавания: " + data.error, "err");
+        try {
+            box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Загрузка аудио...</span>';
+            
+            // Конвертируем Blob в массив
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            
+            // Преобразуем в нужный формат для Whisper
+            const rawData = audioBuffer.getChannelData(0);
+            
+            box.innerHTML = '<span style="color:var(--fg-m)"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Распознавание речи...</span>';
+            progressFill.style.width = "50%";
+            
+            // Используем Whisper для распознавания
+            const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0');
+            const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny');
+            
+            progressFill.style.width = "75%";
+            
+            const result = await transcriber(audioBlob, {
+                language: 'russian',
+                top_k: 0,
+                do_sample: false,
+                chunk_length_s: 30,
+                stride_length_s: 5
+            });
+            
+            progressFill.style.width = "100%";
+            
+            const text = result.text;
+            box.innerHTML = '<strong>Распознано:</strong><br><span style="font-size:13px;color:var(--fg-m);margin-top:8px;display:block">' + text + '</span>';
+            
+            // Извлекаем числа
+            const nums = extractNumbers(text);
+            
+            if (nums.length >= 3) {
+                let sys = nums[0];
+                let dia = nums[1];
+                let pulse = nums[2];
+                
+                // Проверяем правильность (sys > dia)
+                if (sys < dia) {
+                    [sys, dia] = [dia, sys];
+                }
+                
+                document.getElementById("iSys").value = sys;
+                document.getElementById("iDia").value = dia;
+                document.getElementById("iPls").value = pulse;
+                
+                const st = bpStatus(sys, dia);
+                document.getElementById("resStat").innerHTML = '<div style="display:inline-block;padding:8px 12px;background:' + st.bg + ';color:' + st.color + ';border-radius:6px;font-weight:600;font-size:13px">' + st.label + '</div>';
+                
+                const rc = document.getElementById("resCard");
+                rc.classList.remove("hidden", "fade-in");
+                void rc.offsetWidth;
+                rc.classList.add("fade-in");
+                
+                showToast("✓ " + sys + "/" + dia + " пульс " + pulse, "ok");
             } else {
-                setTimeout(() => { waitForTranscription(transcriptId, attempts + 1); }, 1000);
+                box.innerHTML += '<br><span style="color:var(--danger);font-size:12px;margin-top:8px;display:block">⚠ Распознано только ' + nums.length + ' число(а). Повторите.</span>';
+                showToast("⚠ Нужно 3 числа, найдено " + nums.length, "err");
             }
-        })
-        .catch(e => { showToast("❌ " + e.message, "err"); });
+            
+            progressBar.style.display = "none";
+            document.getElementById("micStatus").textContent = "Нажмите, чтобы начать";
+        } catch(err) {
+            console.error(err);
+            box.innerHTML = '<span style="color:var(--danger)">❌ Ошибка: ' + err.message + '</span>';
+            showToast("❌ " + err.message, "err");
+            progressBar.style.display = "none";
+            document.getElementById("micStatus").textContent = "Ошибка. Попробуйте снова";
+        }
     }
 
-    function processTranscription(text) {
-        var box = document.getElementById("transcriptBox");
-        box.innerHTML = '<strong>Распознано:</strong><br><span style="font-size:13px;color:var(--fg-m);margin-top:8px;display:block">' + text + '</span>';
-        
-        var nums = [];
-        var re = /\b(\d{1,3})\b/g;
-        var m;
+    function extractNumbers(text) {
+        const nums = [];
+        const re = /\b(\d{1,3})\b/g;
+        let m;
         while ((m = re.exec(text)) !== null) {
-            var n = parseInt(m[1], 10);
-            if (n >= 20 && n <= 300) { nums.push(n); }
+            const n = parseInt(m[1], 10);
+            if (n >= 20 && n <= 300) nums.push(n);
         }
-        nums = nums.slice(0, 3);
-        
-        if (nums.length >= 3) {
-            var sys = nums[0];
-            var dia = nums[1];
-            var pulse = nums[2];
-            
-            if (sys < dia) { var tmp = sys; sys = dia; dia = tmp; }
-            
-            document.getElementById("iSys").value = sys;
-            document.getElementById("iDia").value = dia;
-            document.getElementById("iPls").value = pulse;
-            
-            var st = bpStatus(sys, dia);
-            document.getElementById("resStat").innerHTML = '<div style="display:inline-block;padding:8px 12px;background:' + st.bg + ';color:' + st.color + ';border-radius:6px;font-weight:600;font-size:13px">' + st.label + '</div>';
-            
-            var rc = document.getElementById("resCard");
-            rc.classList.remove("hidden", "fade-in");
-            void rc.offsetWidth;
-            rc.classList.add("fade-in");
-            
-            showToast("✓ Распознано: " + sys + "/" + dia + " пульс " + pulse, "ok");
-        } else {
-            showToast("⚠ Распознано только " + nums.length + " число(а). Повторите.", "err");
-            resetVoice();
-        }
+        return nums.slice(0, 3);
     }
 
     function bpStatus(sys, dia) {
-        if (sys < 120 && dia < 80) { return { label:"Оптимальное ✓", color:"#00e09e", bg:"rgba(0,224,158,.12)" }; }
-        if (sys < 130 && dia < 85) { return { label:"Нормальное ✓", color:"#7ee8b5", bg:"rgba(126,232,181,.12)" }; }
-        if (sys < 140 && dia < 90) { return { label:"Повышенное ⚠", color:"#ffb347", bg:"rgba(255,179,71,.12)" }; }
-        if (sys < 160 && dia < 100) { return { label:"Гипертония I ⚠", color:"#ff8c5c", bg:"rgba(255,140,92,.12)" }; }
-        if (sys < 180 && dia < 110) { return { label:"Гипертония II ⚠", color:"#ff5c5c", bg:"rgba(255,92,92,.12)" }; }
-        return { label:"Гипертония III ❌", color:"#ff2d2d", bg:"rgba(255,45,45,.15)" };
+        if (sys < 120 && dia < 80) return { label: "Оптимальное ✓", color: "#00e09e", bg: "rgba(0,224,158,.12)" };
+        if (sys < 130 && dia < 85) return { label: "Нормальное ✓", color: "#7ee8b5", bg: "rgba(126,232,181,.12)" };
+        if (sys < 140 && dia < 90) return { label: "Повышенное ⚠", color: "#ffb347", bg: "rgba(255,179,71,.12)" };
+        if (sys < 160 && dia < 100) return { label: "Гипертония I ⚠", color: "#ff8c5c", bg: "rgba(255,140,92,.12)" };
+        if (sys < 180 && dia < 110) return { label: "Гипертония II ⚠", color: "#ff5c5c", bg: "rgba(255,92,92,.12)" };
+        return { label: "Гипертония III ❌", color: "#ff2d2d", bg: "rgba(255,45,45,.15)" };
     }
 
     function addMeas() {
-        var s = parseInt(document.getElementById("iSys").value, 10);
-        var d = parseInt(document.getElementById("iDia").value, 10);
-        var p = parseInt(document.getElementById("iPls").value, 10);
+        const s = parseInt(document.getElementById("iSys").value, 10);
+        const d = parseInt(document.getElementById("iDia").value, 10);
+        const p = parseInt(document.getElementById("iPls").value, 10);
         
-        if (isNaN(s) || isNaN(d) || isNaN(p)) { showToast("⚠ Некорректные значения", "err"); return; }
+        if (isNaN(s) || isNaN(d) || isNaN(p)) {
+            showToast("⚠ Некорректные значения", "err");
+            return;
+        }
         M.push({ id: Date.now(), date: new Date().toISOString(), sys: s, dia: d, pulse: p });
-        saveData();
+        localStorage.setItem("bp_data", JSON.stringify(M));
         renderAll();
         showToast("✓ Сохранено!", "ok");
         resetVoice();
@@ -455,50 +405,67 @@
         document.getElementById("resStat").innerHTML = "";
     }
 
-    function delMeas(id) { M = M.filter(x => x.id !== id); saveData(); renderAll(); showToast("Удалено", "info"); }
-    function clearAll() { M = []; saveData(); renderAll(); showToast("Все удалено", "info"); }
-    function saveData() { localStorage.setItem("bp_data", JSON.stringify(M)); }
+    function delMeas(id) {
+        M = M.filter(x => x.id !== id);
+        localStorage.setItem("bp_data", JSON.stringify(M));
+        renderAll();
+        showToast("Удалено", "info");
+    }
+
+    function clearAll() {
+        M = [];
+        localStorage.setItem("bp_data", JSON.stringify(M));
+        renderAll();
+        showToast("Все удалено", "info");
+    }
 
     function exportCSV() {
         if (!M.length) { showToast("Нет данных", "err"); return; }
-        var csv = "Дата;SYS;DIA;Пульс;Статус\n";
+        let csv = "Дата;SYS;DIA;Пульс;Статус\n";
         M.forEach(m => {
-            var st = bpStatus(m.sys, m.dia);
+            const st = bpStatus(m.sys, m.dia);
             csv += new Date(m.date).toLocaleString('ru-RU') + ";" + m.sys + ";" + m.dia + ";" + m.pulse + ";" + st.label + "\n";
         });
-        var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-        var a = document.createElement("a");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = "bp_" + new Date().toISOString().split('T')[0] + ".csv";
         a.click();
         showToast("✓ CSV сохранён", "ok");
     }
 
-    function triggerImport() { document.getElementById("csvFileInput").click(); }
+    function triggerImport() {
+        document.getElementById("csvFileInput").click();
+    }
+
     function handleCSVFile(file) {
-        var reader = new FileReader();
+        const reader = new FileReader();
         reader.onload = e => {
-            var lines = e.target.result.split('\n');
-            var imported = [];
-            for (var i = 1; i < lines.length; i++) {
-                var parts = lines[i].split(';');
+            const lines = e.target.result.split('\n');
+            let imported = [];
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(';');
                 if (parts.length < 3) continue;
-                var sys = parseInt(parts[1]);
-                var dia = parseInt(parts[2]);
-                if (!isNaN(sys) && !isNaN(dia)) { imported.push({ id: Date.now() + i, date: new Date().toISOString(), sys, dia, pulse: null }); }
+                const sys = parseInt(parts[1]);
+                const dia = parseInt(parts[2]);
+                if (!isNaN(sys) && !isNaN(dia)) {
+                    imported.push({ id: Date.now() + i, date: new Date().toISOString(), sys, dia, pulse: null });
+                }
             }
-            if (imported.length > 0) { M = M.concat(imported); saveData(); renderAll(); showToast("✓ Импортировано " + imported.length + " записей", "ok"); }
+            if (imported.length > 0) {
+                M = M.concat(imported);
+                localStorage.setItem("bp_data", JSON.stringify(M));
+                renderAll();
+                showToast("✓ Импортировано " + imported.length + " записей", "ok");
+            }
         };
         reader.readAsText(file);
     }
-    function doImportReplace() { document.getElementById("importModal").classList.remove("open"); }
-    function doImportAppend() { document.getElementById("importModal").classList.remove("open"); }
-    function cancelImport() { document.getElementById("importModal").classList.remove("open"); }
 
     function renderAll() {
-        var last = M[M.length - 1];
+        const last = M[M.length - 1];
         if (last) {
-            var st = bpStatus(last.sys, last.dia);
+            const st = bpStatus(last.sys, last.dia);
             document.getElementById("sSys").textContent = last.sys;
             document.getElementById("sSys").style.color = st.color;
             document.getElementById("sDia").textContent = last.dia;
@@ -511,12 +478,13 @@
         }
         
         document.getElementById("mCnt").textContent = M.length + " " + (M.length === 1 ? "запись" : M.length < 5 ? "записи" : "записей");
-        var tb = document.getElementById("tBody");
+        
+        const tb = document.getElementById("tBody");
         tb.innerHTML = "";
         M.slice().reverse().forEach((m, i) => {
-            var st = bpStatus(m.sys, m.dia);
-            var tr = document.createElement("tr");
-            tr.innerHTML = '<td style="color:var(--fg-m)">' + (M.length - i) + '</td><td>' + new Date(m.date).toLocaleString('ru-RU') + '</td><td style="color:' + st.color + ';font-weight:800">' + m.sys + '</td><td>' + m.dia + '</td><td>' + m.pulse + '</td><td style="font-size:11px">' + st.label + '</td><td><button class="btn-d" onclick="delMeas(' + m.id + ')"><i class="fa-solid fa-xmark"></i></button></td>';
+            const st = bpStatus(m.sys, m.dia);
+            const tr = document.createElement("tr");
+            tr.innerHTML = '<td>' + (M.length - i) + '</td><td>' + new Date(m.date).toLocaleString('ru-RU') + '</td><td style="color:' + st.color + ';font-weight:800">' + m.sys + '</td><td>' + m.dia + '</td><td>' + m.pulse + '</td><td style="font-size:11px">' + st.label + '</td><td><button class="btn-d" onclick="delMeas(' + m.id + ')"><i class="fa-solid fa-xmark"></i></button></td>';
             tb.appendChild(tr);
         });
         
@@ -525,14 +493,22 @@
     }
 
     function showToast(msg, type) {
-        var cls = type === "ok" ? "toast-ok" : type === "err" ? "toast-err" : "toast-info";
-        var el = document.createElement("div");
+        const cls = type === "ok" ? "toast-ok" : type === "err" ? "toast-err" : "toast-info";
+        const el = document.createElement("div");
         el.className = "toast " + cls;
         el.textContent = msg;
         document.body.appendChild(el);
         setTimeout(() => el.classList.add("show"), 10);
-        setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 500); }, 3500);
+        setTimeout(() => {
+            el.classList.remove("show");
+            setTimeout(() => el.remove(), 500);
+        }, 3500);
     }
+
+    document.getElementById("csvFileInput").addEventListener("change", e => {
+        if (e.target.files.length) handleCSVFile(e.target.files[0]);
+        e.target.value = "";
+    });
     </script>
 </body>
 </html>
